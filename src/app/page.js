@@ -569,7 +569,8 @@ const ConstructionTracker = () => {
 
     useEffect(() => {
       const handleClickOutside = (event) => {
-        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+            buttonRef.current && !buttonRef.current.contains(event.target)) {
           setIsOpen(false);
         }
       };
@@ -589,8 +590,13 @@ const ConstructionTracker = () => {
       }
     }, [isOpen]);
 
+    const handleToggle = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsOpen(prev => !prev);
+    };
+
     const handleSelect = (optionValue) => {
-      console.log('Selected value:', optionValue); // Debug log
       onChange(optionValue);
       setIsOpen(false);
     };
@@ -620,7 +626,6 @@ const ConstructionTracker = () => {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Button clicked:', option.value); // Debug log
                   handleSelect(option.value);
                 }}
                 className={`w-full px-3 py-2 text-left text-sm transition-colors duration-200 hover:bg-gray-700/70 first:rounded-t-lg last:rounded-b-lg ${
@@ -644,14 +649,14 @@ const ConstructionTracker = () => {
         <button
           ref={buttonRef}
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleToggle}
           className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 transition-all duration-300 ease-in-out transform hover:scale-[1.02] focus:scale-[1.02] flex items-center justify-between"
         >
           <span className={value ? 'text-white' : 'text-gray-400'}>
             {displayValue}
           </span>
           <svg
-            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
