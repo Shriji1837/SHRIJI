@@ -2,7 +2,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter } from 'lucide-react';
 
-const [showMatchPopup, setShowMatchPopup] = useState(false);
 // Properly working useCountAnimation hook without stale closures
 // Properly working useCountAnimation hook without stale closures
 // Properly working useCountAnimation hook without stale closures
