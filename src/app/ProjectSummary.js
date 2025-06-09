@@ -2,66 +2,82 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter } from 'lucide-react';
 
-// Properly fixed useCountAnimation hook
+// Properly working useCountAnimation hook without stale closures
+// Properly working useCountAnimation hook without stale closures
+// Properly working useCountAnimation hook without stale closures
 const useCountAnimation = (targetValue, duration = 2000) => {
   const [currentValue, setCurrentValue] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   
-  // Track the last target value that we animated to
-  const [lastTargetValue, setLastTargetValue] = useState(0);
+  // Store previous target to detect actual changes - start with null to allow first animation
+  const prevTargetRef = useRef(null);
   
-  // Track the current display value (what's actually shown)
-  const currentDisplayValueRef = useRef(0);
+  // Store animation state in refs to avoid stale closures
+  const animationRef = useRef({
+    startValue: 0,
+    targetValue: 0,
+    startTime: 0,
+    duration: duration
+  });
 
   useEffect(() => {
-    // Skip animation if target hasn't actually changed
-    if (targetValue === lastTargetValue) {
+    // Only animate if target value actually changed (but allow first time)
+    if (prevTargetRef.current !== null && targetValue === prevTargetRef.current) {
       return;
     }
 
     // Handle zero case
     if (targetValue === 0) {
       setCurrentValue(0);
-      setLastTargetValue(0);
       setIsAnimating(false);
-      currentDisplayValueRef.current = 0;
+      prevTargetRef.current = 0;
+      animationRef.current.startValue = 0;
       return;
     }
 
+    // Set up animation parameters
     setIsAnimating(true);
-    
-    // Animation parameters
-    const frameDuration = 1000 / 60; // 60fps
-    const totalFrames = Math.round(duration / frameDuration);
-    const easeOutQuad = t => t * (2 - t);
-    
-    let frame = 0;
-    // Start from the current display value, not 0
-    const startValue = currentDisplayValueRef.current;
-    const valueRange = targetValue - startValue;
-    
-    const counter = setInterval(() => {
-      frame++;
+    animationRef.current = {
+      startValue: currentValue, // Use the live state
+      targetValue,
+      startTime: performance.now(),
+      duration
+    };
+
+    // Animation function using requestAnimationFrame for smoothness
+    const animate = (currentTime) => {
+      const { startValue, targetValue, startTime, duration } = animationRef.current;
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
       
-      const progress = easeOutQuad(frame / totalFrames);
-      const current = Math.round(startValue + (valueRange * progress));
+      // Easing function for smooth animation
+      const easeOutQuad = (t) => t * (2 - t);
+      const easedProgress = easeOutQuad(progress);
       
-      setCurrentValue(current);
-      currentDisplayValueRef.current = current;
-      
-      if (frame >= totalFrames) {
+      // Calculate current value
+      const currentAnimatedValue = Math.round(
+        startValue + (targetValue - startValue) * easedProgress
+      );
+
+      // Use functional update to avoid stale closure
+      setCurrentValue(currentAnimatedValue);
+
+      // Continue animation or finish
+      if (progress < 1) {
+        requestAnimationFrame(animate);
+      } else {
         setCurrentValue(targetValue);
-        currentDisplayValueRef.current = targetValue;
         setIsAnimating(false);
-        clearInterval(counter);
       }
-    }, frameDuration);
+    };
 
-    // Update the last target value to current target
-    setLastTargetValue(targetValue);
+    // Start animation
+    requestAnimationFrame(animate);
+    
+    // Update previous target
+    prevTargetRef.current = targetValue;
 
-    return () => clearInterval(counter);
-  }, [targetValue, duration, lastTargetValue]); // Include lastTargetValue in deps
+  }, [targetValue]); // Only depend on targetValue
 
   return { currentValue, isAnimating };
 };
