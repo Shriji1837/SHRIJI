@@ -391,9 +391,9 @@ const ProjectSummary = ({
   const totalCost = calculateTotalCost();
   const totalAllowance = calculateTotalAllowance();
   
-  // Use counting animations for both totals - even faster but still smooth!
-  const { currentValue: animatedTotalCost, isAnimating: isCostAnimating } = useCountAnimation(totalCost, 800);
-  const { currentValue: animatedTotalAllowance, isAnimating: isAllowanceAnimating } = useCountAnimation(totalAllowance, 800);
+  // Use counting animations for both totals - super fast but still smooth!
+  const { currentValue: animatedTotalCost, isAnimating: isCostAnimating } = useCountAnimation(totalCost, 500);
+  const { currentValue: animatedTotalAllowance, isAnimating: isAllowanceAnimating } = useCountAnimation(totalAllowance, 500);
   
   const formattedTotalCost = new Intl.NumberFormat('en-US', {
     style: 'currency',
