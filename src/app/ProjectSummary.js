@@ -83,6 +83,7 @@ const ProjectSummary = ({
     priority: 'all'
   });
   const [summarySearchTerm, setSummarySearchTerm] = useState('');
+  const [showMatchPopup, setShowMatchPopup] = useState(false);
 
   // Custom dropdown component with Portal solution (same as detailed breakdown)
   const CustomDropdown = ({ label, value, options, onChange, placeholder, zIndex = 50 }) => {
