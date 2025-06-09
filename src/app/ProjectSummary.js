@@ -2,65 +2,66 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter } from 'lucide-react';
 
-// Fixed useCountAnimation hook with proper state tracking
+// Properly fixed useCountAnimation hook
 const useCountAnimation = (targetValue, duration = 2000) => {
   const [currentValue, setCurrentValue] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
-  const prevTargetRef = useRef(0);
-  const currentAnimatedValueRef = useRef(0);
+  
+  // Track the last target value that we animated to
+  const [lastTargetValue, setLastTargetValue] = useState(0);
+  
+  // Track the current display value (what's actually shown)
+  const currentDisplayValueRef = useRef(0);
 
   useEffect(() => {
-    // If target hasn't changed, don't animate
-    if (targetValue === prevTargetRef.current) {
+    // Skip animation if target hasn't actually changed
+    if (targetValue === lastTargetValue) {
       return;
     }
 
-    // If target is 0, just set it without animation
+    // Handle zero case
     if (targetValue === 0) {
       setCurrentValue(0);
+      setLastTargetValue(0);
       setIsAnimating(false);
-      prevTargetRef.current = 0;
-      currentAnimatedValueRef.current = 0;
+      currentDisplayValueRef.current = 0;
       return;
     }
 
     setIsAnimating(true);
     
-    // Professional approach: 60fps frame-based animation
-    const frameDuration = 1000 / 60; // 16.67ms per frame for 60fps
+    // Animation parameters
+    const frameDuration = 1000 / 60; // 60fps
     const totalFrames = Math.round(duration / frameDuration);
-    const easeOutQuad = t => t * (2 - t); // Smooth deceleration curve
+    const easeOutQuad = t => t * (2 - t);
     
     let frame = 0;
-    // Start from current animated value, not from 0
-    const startValue = currentAnimatedValueRef.current;
+    // Start from the current display value, not 0
+    const startValue = currentDisplayValueRef.current;
     const valueRange = targetValue - startValue;
     
     const counter = setInterval(() => {
       frame++;
       
-      // Calculate smooth progress from 0 to 1
       const progress = easeOutQuad(frame / totalFrames);
-      
-      // Calculate current value based on progress from start to target
       const current = Math.round(startValue + (valueRange * progress));
-      setCurrentValue(current);
-      currentAnimatedValueRef.current = current;
       
-      // Stop when animation is complete
+      setCurrentValue(current);
+      currentDisplayValueRef.current = current;
+      
       if (frame >= totalFrames) {
         setCurrentValue(targetValue);
-        currentAnimatedValueRef.current = targetValue;
+        currentDisplayValueRef.current = targetValue;
         setIsAnimating(false);
         clearInterval(counter);
       }
     }, frameDuration);
 
-    // Update the previous target reference
-    prevTargetRef.current = targetValue;
+    // Update the last target value to current target
+    setLastTargetValue(targetValue);
 
     return () => clearInterval(counter);
-  }, [targetValue, duration]);
+  }, [targetValue, duration, lastTargetValue]); // Include lastTargetValue in deps
 
   return { currentValue, isAnimating };
 };
