@@ -5,24 +5,17 @@ import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter } from
 // Properly working useCountAnimation hook without stale closures
 // Properly working useCountAnimation hook without stale closures
 // Properly working useCountAnimation hook without stale closures
+// Updated useCountAnimation hook with requestAnimationFrame approach
 const useCountAnimation = (targetValue, duration = 2500) => {
   const [currentValue, setCurrentValue] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   
-  // Store previous target to detect actual changes - start with null to allow first animation
-  const prevTargetRef = useRef(null);
-  
-  // Store animation state in refs to avoid stale closures
-  const animationRef = useRef({
-    startValue: 0,
-    targetValue: 0,
-    startTime: 0,
-    duration: duration
-  });
+  // Track previous number to detect changes
+  const prevNumberRef = useRef(0);
 
   useEffect(() => {
-    // Only animate if target value actually changed (but allow first time)
-    if (prevTargetRef.current !== null && targetValue === prevTargetRef.current) {
+    // Only animate if target value actually changed
+    if (targetValue === prevNumberRef.current) {
       return;
     }
 
@@ -30,23 +23,16 @@ const useCountAnimation = (targetValue, duration = 2500) => {
     if (targetValue === 0) {
       setCurrentValue(0);
       setIsAnimating(false);
-      prevTargetRef.current = 0;
-      animationRef.current.startValue = 0;
+      prevNumberRef.current = 0;
       return;
     }
 
-    // Set up animation parameters
+    // Start animation
     setIsAnimating(true);
-    animationRef.current = {
-      startValue: currentValue, // Use the live state
-      targetValue,
-      startTime: performance.now(),
-      duration
-    };
-
-    // Animation function using requestAnimationFrame for smoothness
-    const animate = (currentTime) => {
-      const { startValue, targetValue, startTime, duration } = animationRef.current;
+    const startValue = currentValue;
+    const startTime = performance.now();
+    
+    const animateNumber = (currentTime) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
       
@@ -54,30 +40,26 @@ const useCountAnimation = (targetValue, duration = 2500) => {
       const easeOutQuad = (t) => t * (2 - t);
       const easedProgress = easeOutQuad(progress);
       
-      // Calculate current value
-      const currentAnimatedValue = Math.round(
-        startValue + (targetValue - startValue) * easedProgress
-      );
-
-      // Use functional update to avoid stale closure
-      setCurrentValue(currentAnimatedValue);
-
+      // Calculate current display number
+      const displayNumber = Math.round(startValue + (targetValue - startValue) * easedProgress);
+      setCurrentValue(displayNumber);
+      
       // Continue animation or finish
       if (progress < 1) {
-        requestAnimationFrame(animate);
+        requestAnimationFrame(animateNumber);
       } else {
         setCurrentValue(targetValue);
         setIsAnimating(false);
       }
     };
 
-    // Start animation
-    requestAnimationFrame(animate);
+    // Start the animation
+    requestAnimationFrame(animateNumber);
     
-    // Update previous target
-    prevTargetRef.current = targetValue;
+    // Update previous number reference
+    prevNumberRef.current = targetValue;
 
-  }, [targetValue]); // Only depend on targetValue
+  }, [targetValue, duration, currentValue]);
 
   return { currentValue, isAnimating };
 };
