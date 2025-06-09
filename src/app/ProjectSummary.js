@@ -3,14 +3,17 @@ import ReactDOM from 'react-dom';
 import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter } from 'lucide-react';
 
 // Custom hook for smooth number counting animation (proper method from research)
-const useCountAnimation = (targetValue, duration = 500) => {
-  const [currentValue, setCurrentValue] = useState(targetValue); // Start with target value
+// Fixed useCountAnimation hook - remove currentValue from dependencies
+const useCountAnimation = (targetValue, duration = 2000) => {
+  const [currentValue, setCurrentValue] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
-  const previousValueRef = useRef(targetValue); // Track previous value
 
   useEffect(() => {
-    // Only animate if the target value actually changed
-    if (targetValue === previousValueRef.current) return;
+    if (targetValue === 0) {
+      setCurrentValue(0);
+      setIsAnimating(false);
+      return;
+    }
 
     setIsAnimating(true);
     
@@ -20,7 +23,7 @@ const useCountAnimation = (targetValue, duration = 500) => {
     const easeOutQuad = t => t * (2 - t); // Smooth deceleration curve
     
     let frame = 0;
-    const startValue = currentValue; // Start from current displayed value
+    const startValue = 0; // Always start from 0 for smooth animation
     
     const counter = setInterval(() => {
       frame++;
@@ -36,13 +39,12 @@ const useCountAnimation = (targetValue, duration = 500) => {
       if (frame >= totalFrames) {
         setCurrentValue(targetValue);
         setIsAnimating(false);
-        previousValueRef.current = targetValue; // Update previous value
         clearInterval(counter);
       }
     }, frameDuration);
 
     return () => clearInterval(counter);
-  }, [targetValue]); // Remove currentValue from dependency array
+  }, [targetValue, duration]); // Remove currentValue from dependencies!
 
   return { currentValue, isAnimating };
 };
