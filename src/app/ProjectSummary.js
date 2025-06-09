@@ -2,6 +2,48 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter } from 'lucide-react';
 
+// Custom hook for smooth number counting animation (proper method from research)
+const useCountAnimation = (targetValue, duration = 2000) => {
+  const [currentValue, setCurrentValue] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+
+  useEffect(() => {
+    if (targetValue === currentValue) return;
+
+    setIsAnimating(true);
+    
+    // Professional approach: 60fps frame-based animation
+    const frameDuration = 1000 / 60; // 16.67ms per frame for 60fps
+    const totalFrames = Math.round(duration / frameDuration);
+    const easeOutQuad = t => t * (2 - t); // Smooth deceleration curve
+    
+    let frame = 0;
+    const startValue = currentValue;
+    
+    const counter = setInterval(() => {
+      frame++;
+      
+      // Calculate smooth progress from 0 to 1
+      const progress = easeOutQuad(frame / totalFrames);
+      
+      // Calculate current value based on progress
+      const current = Math.round(startValue + (targetValue - startValue) * progress);
+      setCurrentValue(current);
+      
+      // Stop when animation is complete
+      if (frame >= totalFrames) {
+        setCurrentValue(targetValue);
+        setIsAnimating(false);
+        clearInterval(counter);
+      }
+    }, frameDuration);
+
+    return () => clearInterval(counter);
+  }, [targetValue, duration, currentValue]);
+
+  return { currentValue, isAnimating };
+};
+
 const ProjectSummary = ({ 
   properties, 
   filteredProperties, 
@@ -349,19 +391,23 @@ const ProjectSummary = ({
   const totalCost = calculateTotalCost();
   const totalAllowance = calculateTotalAllowance();
   
+  // Use counting animations for both totals - faster but still smooth!
+  const { currentValue: animatedTotalCost, isAnimating: isCostAnimating } = useCountAnimation(totalCost, 1200);
+  const { currentValue: animatedTotalAllowance, isAnimating: isAllowanceAnimating } = useCountAnimation(totalAllowance, 1200);
+  
   const formattedTotalCost = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(totalCost);
+  }).format(animatedTotalCost);
 
   const formattedTotalAllowance = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(totalAllowance);
+  }).format(animatedTotalAllowance);
 
   return (
     <div className="p-6">
@@ -687,8 +733,17 @@ const ProjectSummary = ({
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-gray-300 text-sm font-medium tracking-wide">TOTAL COST</h3>
-                      <p className="text-gray-500 text-xs truncate">
+                      <div className="relative">
+                        {/* Glowing background text */}
+                        <div className="absolute inset-0 text-sm font-black text-green-400/30 blur-sm">
+                          TOTAL COST
+                        </div>
+                        {/* Main gradient text */}
+                        <h3 className="relative text-sm font-black bg-gradient-to-r from-green-300 via-emerald-200 to-green-300 bg-clip-text text-transparent tracking-wide animate-pulse">
+                          TOTAL COST
+                        </h3>
+                      </div>
+                      <p className="text-gray-500 text-xs truncate mt-1">
                         {filteredProperties.length} {filteredProperties.length === 1 ? 'item' : 'items'} 
                         {filteredProperties.length !== properties.length ? ' (filtered)' : ''}
                       </p>
@@ -703,17 +758,27 @@ const ProjectSummary = ({
                         {formattedTotalCost}
                       </div>
                       
-                      {/* Main text */}
-                      <div className="relative text-2xl font-black bg-gradient-to-r from-green-400 via-emerald-300 to-green-400 bg-clip-text text-transparent animate-pulse">
+                      {/* Main text with animation scaling */}
+                      <div className={`relative text-2xl font-black bg-gradient-to-r from-green-400 via-emerald-300 to-green-400 bg-clip-text text-transparent transition-all duration-300 ${
+                        isCostAnimating ? 'animate-pulse scale-110' : 'animate-pulse scale-100'
+                      }`}>
                         {formattedTotalCost}
                       </div>
                     </div>
                     
-                    {/* Subtitle */}
+                    {/* Subtitle with animation indicator */}
                     <div className="flex items-center justify-center space-x-2 mt-2">
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-green-400 text-xs font-medium tracking-wider">LIVE TOTAL</span>
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
+                      <div className={`w-1.5 h-1.5 bg-green-500 rounded-full transition-all duration-300 ${
+                        isCostAnimating ? 'animate-ping scale-150' : 'animate-pulse scale-100'
+                      }`}></div>
+                      <span className={`text-green-400 text-xs font-medium tracking-wider transition-all duration-300 ${
+                        isCostAnimating ? 'text-green-300' : 'text-green-400'
+                      }`}>
+                        {isCostAnimating ? 'UPDATING' : 'LIVE TOTAL'}
+                      </span>
+                      <div className={`w-1.5 h-1.5 bg-green-500 rounded-full transition-all duration-300 ${
+                        isCostAnimating ? 'animate-ping scale-150' : 'animate-pulse scale-100'
+                      }`} style={{animationDelay: '0.5s'}}></div>
                     </div>
                   </div>
 
@@ -762,8 +827,17 @@ const ProjectSummary = ({
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-gray-300 text-sm font-medium tracking-wide">TOTAL ALLOWANCE</h3>
-                      <p className="text-gray-500 text-xs truncate">
+                      <div className="relative">
+                        {/* Glowing background text */}
+                        <div className="absolute inset-0 text-sm font-black text-blue-400/30 blur-sm">
+                          TOTAL ALLOWANCE
+                        </div>
+                        {/* Main gradient text */}
+                        <h3 className="relative text-sm font-black bg-gradient-to-r from-blue-300 via-indigo-200 to-blue-300 bg-clip-text text-transparent tracking-wide animate-pulse">
+                          TOTAL ALLOWANCE
+                        </h3>
+                      </div>
+                      <p className="text-gray-500 text-xs truncate mt-1">
                         {filteredProperties.length} {filteredProperties.length === 1 ? 'budget' : 'budgets'} 
                         {filteredProperties.length !== properties.length ? ' (filtered)' : ''}
                       </p>
@@ -778,17 +852,27 @@ const ProjectSummary = ({
                         {formattedTotalAllowance}
                       </div>
                       
-                      {/* Main text */}
-                      <div className="relative text-2xl font-black bg-gradient-to-r from-blue-400 via-indigo-300 to-blue-400 bg-clip-text text-transparent animate-pulse">
+                      {/* Main text with animation scaling */}
+                      <div className={`relative text-2xl font-black bg-gradient-to-r from-blue-400 via-indigo-300 to-blue-400 bg-clip-text text-transparent transition-all duration-300 ${
+                        isAllowanceAnimating ? 'animate-pulse scale-110' : 'animate-pulse scale-100'
+                      }`}>
                         {formattedTotalAllowance}
                       </div>
                     </div>
                     
-                    {/* Subtitle */}
+                    {/* Subtitle with animation indicator */}
                     <div className="flex items-center justify-center space-x-2 mt-2">
-                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse"></div>
-                      <span className="text-blue-400 text-xs font-medium tracking-wider">BUDGET</span>
-                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
+                      <div className={`w-1.5 h-1.5 bg-blue-500 rounded-full transition-all duration-300 ${
+                        isAllowanceAnimating ? 'animate-ping scale-150' : 'animate-pulse scale-100'
+                      }`}></div>
+                      <span className={`text-blue-400 text-xs font-medium tracking-wider transition-all duration-300 ${
+                        isAllowanceAnimating ? 'text-blue-300' : 'text-blue-400'
+                      }`}>
+                        {isAllowanceAnimating ? 'UPDATING' : 'BUDGET'}
+                      </span>
+                      <div className={`w-1.5 h-1.5 bg-blue-500 rounded-full transition-all duration-300 ${
+                        isAllowanceAnimating ? 'animate-ping scale-150' : 'animate-pulse scale-100'
+                      }`} style={{animationDelay: '0.5s'}}></div>
                     </div>
                   </div>
 
