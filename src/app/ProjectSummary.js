@@ -5,7 +5,7 @@ import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter } from
 // Properly working useCountAnimation hook without stale closures
 // Properly working useCountAnimation hook without stale closures
 // Properly working useCountAnimation hook without stale closures
-const useCountAnimation = (targetValue, duration = 2000) => {
+const useCountAnimation = (targetValue, duration = 2500) => {
   const [currentValue, setCurrentValue] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   
