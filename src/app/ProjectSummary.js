@@ -20,7 +20,7 @@ const useCountAnimation = (targetValue, duration = 500) => {
     const easeOutQuad = t => t * (2 - t); // Smooth deceleration curve
     
     let frame = 0;
-    const startValue = previousValueRef.current; // Start from previous value, not 0
+    const startValue = currentValue; // Start from current displayed value
     
     const counter = setInterval(() => {
       frame++;
@@ -42,7 +42,7 @@ const useCountAnimation = (targetValue, duration = 500) => {
     }, frameDuration);
 
     return () => clearInterval(counter);
-  }, [targetValue, duration]);
+  }, [targetValue]); // Remove currentValue from dependency array
 
   return { currentValue, isAnimating };
 };
