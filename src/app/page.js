@@ -452,14 +452,55 @@ const handlePageChange = (pageId) => {
         };
       }).filter(item => item.propertyName); // Only include rows with property names
       
-      // Update properties data
-      setProperties(transformedData);
-      
-      // Preserve user's current filter state by re-applying filters to new data
-      applyFiltersToData(transformedData);
-      
-      setLastUpdated(new Date());
-      setLoading(false);
+      // Check if totals match before updating
+const newTotalCost = transformedData.reduce((total, item) => {
+  if (item.totalPriceWithTax) {
+    const numericValue = parseFloat(item.totalPriceWithTax.toString().replace(/[^0-9.-]/g, ''));
+    return total + (isNaN(numericValue) ? 0 : numericValue);
+  }
+  return total;
+}, 0);
+
+const newTotalAllowance = transformedData.reduce((total, item) => {
+  if (item.totalBudgetWithTax) {
+    const numericValue = parseFloat(item.totalBudgetWithTax.toString().replace(/[^0-9.-]/g, ''));
+    return total + (isNaN(numericValue) ? 0 : numericValue);
+  }
+  return total;
+}, 0);
+
+// Get current totals for comparison
+const currentTotalCost = properties.reduce((total, item) => {
+  if (item.totalPriceWithTax) {
+    const numericValue = parseFloat(item.totalPriceWithTax.toString().replace(/[^0-9.-]/g, ''));
+    return total + (isNaN(numericValue) ? 0 : numericValue);
+  }
+  return total;
+}, 0);
+
+const currentTotalAllowance = properties.reduce((total, item) => {
+  if (item.totalBudgetWithTax) {
+    const numericValue = parseFloat(item.totalBudgetWithTax.toString().replace(/[^0-9.-]/g, ''));
+    return total + (isNaN(numericValue) ? 0 : numericValue);
+  }
+  return total;
+}, 0);
+
+// Check if values match (only if we have existing data)
+if (properties.length > 0 && newTotalCost === currentTotalCost && newTotalAllowance === currentTotalAllowance) {
+  // Show match popup
+  setShowMatchPopup(true);
+  setTimeout(() => setShowMatchPopup(false), 2000); // Hide after 2 seconds
+}
+
+// Update properties data
+setProperties(transformedData);
+
+// Preserve user's current filter state by re-applying filters to new data
+applyFiltersToData(transformedData);
+
+setLastUpdated(new Date());
+setLoading(false);
     } catch (err) {
       console.error('Error fetching sheet data:', err);
       setError(`Failed to load data from Google Sheets: ${err.message}`);
