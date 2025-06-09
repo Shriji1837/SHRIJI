@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter } from 'lucide-react';
 
+const [showMatchPopup, setShowMatchPopup] = useState(false);
 // Properly working useCountAnimation hook without stale closures
 // Properly working useCountAnimation hook without stale closures
 // Properly working useCountAnimation hook without stale closures
@@ -911,6 +912,22 @@ const ProjectSummary = ({
           </div>
         </div>
       </div>
+      {/* Match Popup */}
+{showMatchPopup && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+    <div className="bg-gray-800/95 backdrop-blur-xl border border-green-500/50 rounded-2xl p-6 shadow-2xl">
+      <div className="flex items-center space-x-3">
+        <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center">
+          <CheckCircle className="w-6 h-6 text-green-400" />
+        </div>
+        <div>
+          <h3 className="text-white text-lg font-semibold">Values Match!</h3>
+          <p className="text-gray-300 text-sm">No changes detected in totals</p>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };
