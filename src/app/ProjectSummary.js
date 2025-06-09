@@ -2,16 +2,25 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter } from 'lucide-react';
 
-// Custom hook for smooth number counting animation (proper method from research)
-// Fixed useCountAnimation hook - remove currentValue from dependencies
+// Fixed useCountAnimation hook with proper state tracking
 const useCountAnimation = (targetValue, duration = 2000) => {
   const [currentValue, setCurrentValue] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
+  const prevTargetRef = useRef(0);
+  const currentAnimatedValueRef = useRef(0);
 
   useEffect(() => {
+    // If target hasn't changed, don't animate
+    if (targetValue === prevTargetRef.current) {
+      return;
+    }
+
+    // If target is 0, just set it without animation
     if (targetValue === 0) {
       setCurrentValue(0);
       setIsAnimating(false);
+      prevTargetRef.current = 0;
+      currentAnimatedValueRef.current = 0;
       return;
     }
 
@@ -23,7 +32,9 @@ const useCountAnimation = (targetValue, duration = 2000) => {
     const easeOutQuad = t => t * (2 - t); // Smooth deceleration curve
     
     let frame = 0;
-    const startValue = 0; // Always start from 0 for smooth animation
+    // Start from current animated value, not from 0
+    const startValue = currentAnimatedValueRef.current;
+    const valueRange = targetValue - startValue;
     
     const counter = setInterval(() => {
       frame++;
@@ -31,20 +42,25 @@ const useCountAnimation = (targetValue, duration = 2000) => {
       // Calculate smooth progress from 0 to 1
       const progress = easeOutQuad(frame / totalFrames);
       
-      // Calculate current value based on progress
-      const current = Math.round(startValue + (targetValue - startValue) * progress);
+      // Calculate current value based on progress from start to target
+      const current = Math.round(startValue + (valueRange * progress));
       setCurrentValue(current);
+      currentAnimatedValueRef.current = current;
       
       // Stop when animation is complete
       if (frame >= totalFrames) {
         setCurrentValue(targetValue);
+        currentAnimatedValueRef.current = targetValue;
         setIsAnimating(false);
         clearInterval(counter);
       }
     }, frameDuration);
 
+    // Update the previous target reference
+    prevTargetRef.current = targetValue;
+
     return () => clearInterval(counter);
-  }, [targetValue, duration]); // Remove currentValue from dependencies!
+  }, [targetValue, duration]);
 
   return { currentValue, isAnimating };
 };
