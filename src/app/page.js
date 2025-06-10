@@ -1,19 +1,178 @@
 "use client"
 import React, { useState, useEffect, useRef } from 'react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 import ReactDOM from 'react-dom';
+import ProjectSummary from './ProjectSummary';
 import { Search, Home, DollarSign, MapPin, Package, User, Calendar, CheckCircle, RefreshCw, Loader2, UserCircle, Settings, LogOut, Eye, EyeOff, UserPlus, Lock } from 'lucide-react';
+
+
+// Auth Form: standalone component so its state sticks
+const AuthForm = ({ mode, onSubmit, onModeChange, loading }) => {
+  const [formData, setFormData] = useState({
+    identifier: '',
+    email: '',
+    username: '',
+    password: '',
+    inviteCode: ''
+  });
+  // Local visibility toggle - this won't affect parent component
+  const [showPassword, setShowPassword] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    try {
+      await onSubmit(formData, mode);
+    } catch (error) {
+      // Error is handled by toast in handleAuth
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-6">
+      <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-8 w-full max-w-md shadow-2xl">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            {mode === 'login' ? <Lock className="w-8 h-8 text-white" /> : <UserPlus className="w-8 h-8 text-white" />}
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            {mode === 'login' ? 'Welcome Back' : 'Join Shriji'}
+          </h1>
+          <p className="text-gray-400">
+            {mode === 'login' ? 'Sign in to your account' : 'Create your account'}
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {mode === 'register' && (
+            <>
+              <div className="group focus-within:text-blue-400">
+                <label className="block text-sm font-medium text-gray-300 mb-2 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">Email *</label>
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
+                  placeholder="Enter your email"
+                />
+              </div>
+
+              <div className="group focus-within:text-blue-400">
+                <label className="block text-sm font-medium text-gray-300 mb-2 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">Username (Optional)</label>
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
+                  placeholder="Choose a username"
+                />
+              </div>
+
+              <div className="group focus-within:text-blue-400">
+                <label className="block text-sm font-medium text-gray-300 mb-2 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">Invite Code *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.inviteCode}
+                  onChange={(e) => setFormData(prev => ({ ...prev, inviteCode: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
+                  placeholder="Enter invite code"
+                />
+              </div>
+            </>
+          )}
+
+          {mode === 'login' && (
+            <div className="group focus-within:text-blue-400">
+              <label className="block text-sm font-medium text-gray-300 mb-2 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">Email or Username</label>
+              <input
+                type="text"
+                required
+                value={formData.identifier}
+                onChange={(e) => setFormData(prev => ({ ...prev, identifier: e.target.value }))}
+                className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
+                placeholder="Enter email or username"
+              />
+            </div>
+          )}
+
+          <div className="group focus-within:text-blue-400">
+            <label className="block text-sm font-medium text-gray-300 mb-2 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">
+              Password
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                value={formData.password}
+                onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
+                className="w-full px-4 py-3 pr-12 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
+                placeholder="Enter your password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors duration-200"
+              >
+                {showPassword ? (
+                  <EyeOff className="w-5 h-5" />
+                ) : (
+                  <Eye className="w-5 h-5" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:hover:scale-100"
+          >
+            {loading ? (
+              <div className="flex items-center justify-center space-x-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                <span>{mode === 'login' ? 'Signing In...' : 'Creating Account...'}</span>
+              </div>
+            ) : (
+              mode === 'login' ? 'Sign In' : 'Create Account'
+            )}
+          </button>
+        </form>
+
+        <div className="mt-6 text-center">
+          <button
+            onClick={() => onModeChange(mode === 'login' ? 'register' : 'login')}
+            className="text-blue-400 hover:text-blue-300 transition-colors duration-200"
+          >
+            {mode === 'login' 
+              ? "Don't have an account? Sign up" 
+              : 'Already have an account? Sign in'
+            }
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 
 const ConstructionTracker = () => {
   // Auth states
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
+  const { data: session, status } = useSession();
+  const isAuthenticated = !!session;
+  const currentUser = session?.user;
+  const authLoading = status === 'loading';
   const [authMode, setAuthMode] = useState('login');
   const [showProfile, setShowProfile] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [authLoading, setAuthLoading] = useState(false);
+  const [loginLoading, setLoginLoading] = useState(false);
   const [showLoginSuccess, setShowLoginSuccess] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [showMatchPopup, setShowMatchPopup] = useState(false);
+  // Navigation states
+const [isNavOpen, setIsNavOpen] = useState(false);
+const [currentPage, setCurrentPage] = useState('detailed-breakdown');
 
   // Data states
   const [properties, setProperties] = useState([]);
@@ -30,13 +189,36 @@ const ConstructionTracker = () => {
     budgetStatus: 'all'
   });
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentSearchInput, setCurrentSearchInput] = useState(''); // Track search input separately
 
-  // Google Sheets configuration
-  const SHEET_ID = '1I0R7NgeWBI90bk30_BKsQ5Lze64fWBD4plrgNyZi6Po';
-  const SHEET_NAME = 'Detailed breakdown';
-  const SHEET_RANGE = 'A1:Z5000';
-  const API_KEY = 'AIzaSyDjGF92yTLtzhoaUHC_TwB69YT3QqtgJcA';
+// Google Sheets configuration
+const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
+const SHEET_NAME = 'Detailed breakdown';
+const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL;
+const SHEET_RANGE = 'A1:Z5000';
+const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_API_KEY;
 
+  // Navigation menu items
+const navigationItems = [
+  {
+    id: 'detailed-breakdown',
+    name: 'Detailed Breakdown',
+    icon: Package,
+    description: 'Complete project overview and item tracking'
+  },
+  {
+    id: 'project-summary',
+    name: 'Project Summary',
+    icon: DollarSign,
+    description: 'Financial summary and progress tracking'
+  }
+];
+
+// Handle page navigation
+const handlePageChange = (pageId) => {
+  setCurrentPage(pageId);
+  setIsNavOpen(false);
+};
   // Define editable fields based on user role
   const getEditableFields = (userRole) => {
     if (userRole === 'admin') {
@@ -57,14 +239,18 @@ const ConstructionTracker = () => {
       'shrijiComments',
       'orderId',
       'orderDate',
-      'approval'
+      'approval',
+      'priority'
     ];
   };
 
   // Check if a field is editable for current user
   const isFieldEditable = (fieldName, userRole) => {
     const editableFields = getEditableFields(userRole);
-    return editableFields === 'all' || editableFields.includes(fieldName);
+    if (editableFields === 'all') {
+      return true; // Admin can edit everything
+    }
+    return editableFields.includes(fieldName);
   };
 
   // Show toast notification
@@ -76,232 +262,124 @@ const ConstructionTracker = () => {
 
   // Auth functions
   const handleAuth = async (formData, mode) => {
-    setAuthLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      if (mode === 'register') {
-        if (formData.inviteCode !== 'SHRIJI') {
-          throw new Error('Invalid invite code! Please contact admin for the correct code.');
-        }
-        
-        const users = JSON.parse(localStorage.getItem('shriji_users') || '[]');
-        const existingUser = users.find(u => u.email === formData.email || (formData.username && u.username === formData.username));
-        if (existingUser) {
-          if (existingUser.email === formData.email) {
-            throw new Error('An account with this email already exists! Try logging in instead.');
-          } else {
-            throw new Error('This username is already taken! Please choose a different one.');
-          }
-        }
-        
-        const newUser = {
-          id: Date.now(),
-          email: formData.email,
-          username: formData.username || null,
-          password: formData.password,
-          role: 'investor', // All registrations are investors
-          createdAt: new Date().toISOString()
-        };
-        
-        users.push(newUser);
-        localStorage.setItem('shriji_users', JSON.stringify(users));
-        localStorage.setItem('shriji_currentUser', JSON.stringify(newUser));
-        
-        setCurrentUser(newUser);
-        setShowLoginSuccess(true);
-        
-        // Show loading animation then authenticate
-        setTimeout(() => {
-          setShowLoginSuccess(false);
-          setIsAuthenticated(true);
-        }, 3000);
-      } else {
-        const users = JSON.parse(localStorage.getItem('shriji_users') || '[]');
-        
-        const user = users.find(u => {
-          const emailMatch = u.email && u.email.toLowerCase() === formData.identifier.toLowerCase();
-          const usernameMatch = u.username && u.username.toLowerCase() === formData.identifier.toLowerCase();
-          const passwordMatch = u.password === formData.password;
-          
-          return (emailMatch || usernameMatch) && passwordMatch;
-        });
-        
-        if (!user) {
-          throw new Error('Invalid credentials! Please check your username/email and password.');
-        }
-        
-        localStorage.setItem('shriji_currentUser', JSON.stringify(user));
-        setCurrentUser(user);
-        setShowLoginSuccess(true);
-        
-        // Show loading animation then authenticate
-        setTimeout(() => {
-          setShowLoginSuccess(false);
-          setIsAuthenticated(true);
-        }, 3000);
-      }
-    } catch (error) {
-      showToastMessage(error.message);
-      throw error;
-    } finally {
-      setAuthLoading(false);
+  setLoginLoading(true); // Start loading
+  try {
+    // Add a small delay to see the "Signing In..." text
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    const result = await signIn('credentials', {
+      identifier: formData.identifier,
+      password: formData.password,
+      email: formData.email,
+      username: formData.username,
+      inviteCode: formData.inviteCode,
+      mode: mode,
+      redirect: false
+    });
+
+    if (result?.error) {
+      throw new Error(result.error);
     }
-  };
+
+    setShowLoginSuccess(true);
+    setTimeout(() => {
+      setShowLoginSuccess(false);
+    }, 3000);
+
+  } catch (error) {
+    showToastMessage(error.message);
+    throw error;
+  } finally {
+    setLoginLoading(false); // Stop loading
+  }
+};
 
   const handleLogout = () => {
-    localStorage.removeItem('shriji_currentUser');
-    setCurrentUser(null);
-    setIsAuthenticated(false);
-    setShowProfile(false);
-  };
+  signOut({ redirect: false });
+  setShowProfile(false);
+};
 
-  const updateProfile = async (updatedData) => {
-    setAuthLoading(true);
-    try {
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const users = JSON.parse(localStorage.getItem('shriji_users') || '[]');
-      const updatedUsers = users.map(u => 
-        u.id === currentUser.id ? { ...u, ...updatedData } : u
-      );
-      
-      const updatedUser = { ...currentUser, ...updatedData };
-      
-      localStorage.setItem('shriji_users', JSON.stringify(updatedUsers));
-      localStorage.setItem('shriji_currentUser', JSON.stringify(updatedUser));
-      
-      setCurrentUser(updatedUser);
-    } catch (error) {
-      throw error;
-    } finally {
-      setAuthLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    const savedUser = localStorage.getItem('shriji_currentUser');
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser);
-        setCurrentUser(user);
-        setIsAuthenticated(true);
-      } catch (error) {
-        localStorage.removeItem('shriji_currentUser');
-      }
-    }
-
-    // Initialize default admin user if it doesn't exist
-    const existingUsers = JSON.parse(localStorage.getItem('shriji_users') || '[]');
-    const adminExists = existingUsers.find(u => u.username === 'admin' || u.email === 'admin@shriji.com');
-    
-    if (!adminExists) {
-      const defaultAdmin = {
-        id: Date.now(),
-        email: 'admin@shriji.com',
-        username: 'admin',
-        password: 'admin123',
-        role: 'admin',
-        createdAt: new Date().toISOString()
-      };
-      
-      const updatedUsers = [...existingUsers, defaultAdmin];
-      localStorage.setItem('shriji_users', JSON.stringify(updatedUsers));
-      console.log('Default admin user created:');
-      console.log('Email: admin@shriji.com');
-      console.log('Username: admin');
-      console.log('Password: admin123');
-    } else {
-      console.log('Admin user already exists');
-    }
-  }, []);
 
   const fetchSheetData = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Use Google Sheets API instead of the old gviz method for better reliability
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!${SHEET_RANGE}?key=${API_KEY}`;
-      
-      const response = await fetch(url);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      
-      if (!data.values || data.values.length === 0) {
-        throw new Error('No data found in sheet');
-      }
-      
-      // Skip header row and transform data
-      const transformedData = data.values.slice(1).map((row, index) => {
-        return {
-          id: index + 1,
-          rowIndex: index + 2, // +2 because sheet is 1-indexed and we skip header
-          propertyName: row[0] || '',
-          category: row[1] || '',
-          floor: row[3] || '',
-          location: row[4] || '',
-          itemDescription: row[5] || '',
-          sizeType: row[6] || '',
-          hardwareType: row[7] || '',
-          quantity: row[8] || 0,
-          link: row[9] || '',
-          vendor: row[10] || '',
-          allowancePerItem: row[11] || '',
-          totalBudgetWithTax: row[12] || '',
-          notes: row[13] || '',
-          qualityToBeOrdered: row[14] || 0,
-          pricePerItem: row[15] || '',
-          totalPriceWithTax: row[16] || '',
-          differenceFromAllowance: row[17] || '',
-          shrijiShare: row[18] || '',
-          clientShare: row[19] || '',
-          shrijiComments: row[20] || '',
-          ordered: row[21] || '',
-          orderId: row[22] || '',
-          orderDate: row[23] || '',
-          priority: row[24] || '',
-          approval: row[25] || ''
-        };
-      }).filter(item => item.propertyName); // Only include rows with property names
-      
-      setProperties(transformedData);
-      setFilteredProperties(transformedData);
-      setLastUpdated(new Date());
-      setLoading(false);
-    } catch (err) {
-      console.error('Error fetching sheet data:', err);
-      setError(`Failed to load data from Google Sheets: ${err.message}`);
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchSheetData();
-      const interval = setInterval(fetchSheetData, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated]);
-
-  const handleManualRefresh = () => {
-    fetchSheetData();
-  };
-
-  const applyFilters = () => {
-    const searchInput = document.querySelector('input[placeholder="Search all fields..."]');
-    const currentSearchTerm = searchInput ? searchInput.value : '';
+  try {
+    setLoading(true);
+    setError(null);
     
-    let filtered = [...properties];
+    const response = await fetch('/api/sheets');
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Failed to fetch data');
+    }
+    
+    const transformedData = result.data;
+    
+    // Calculate totals for comparison (existing logic)
+    const newTotalCost = transformedData.reduce((total, item) => {
+      if (item.totalPriceWithTax) {
+        const numericValue = parseFloat(item.totalPriceWithTax.toString().replace(/[^0-9.-]/g, ''));
+        return total + (isNaN(numericValue) ? 0 : numericValue);
+      }
+      return total;
+    }, 0);
 
-    if (currentSearchTerm) {
+    const newTotalAllowance = transformedData.reduce((total, item) => {
+      if (item.totalBudgetWithTax) {
+        const numericValue = parseFloat(item.totalBudgetWithTax.toString().replace(/[^0-9.-]/g, ''));
+        return total + (isNaN(numericValue) ? 0 : numericValue);
+      }
+      return total;
+    }, 0);
+
+    // Get current totals for comparison
+    const currentTotalCost = properties.reduce((total, item) => {
+      if (item.totalPriceWithTax) {
+        const numericValue = parseFloat(item.totalPriceWithTax.toString().replace(/[^0-9.-]/g, ''));
+        return total + (isNaN(numericValue) ? 0 : numericValue);
+      }
+      return total;
+    }, 0);
+
+    const currentTotalAllowance = properties.reduce((total, item) => {
+      if (item.totalBudgetWithTax) {
+        const numericValue = parseFloat(item.totalBudgetWithTax.toString().replace(/[^0-9.-]/g, ''));
+        return total + (isNaN(numericValue) ? 0 : numericValue);
+      }
+      return total;
+    }, 0);
+
+    // Check if values match (only if we have existing data)
+    if (properties.length > 0 && newTotalCost === currentTotalCost && newTotalAllowance === currentTotalAllowance) {
+      // Show match popup
+      setShowMatchPopup(true);
+      setTimeout(() => setShowMatchPopup(false), 2000);
+    }
+
+    // Update properties data
+    setProperties(transformedData);
+    
+    // Preserve user's current filter state by re-applying filters to new data
+    applyFiltersToData(transformedData);
+    
+    setLastUpdated(new Date());
+    setLoading(false);
+  } catch (err) {
+    console.error('Error fetching sheet data:', err);
+    setError(`Failed to load data: ${err.message}`);
+    setLoading(false);
+  }
+};
+
+  // Helper function to apply current filters to new data
+  const applyFiltersToData = (newData) => {
+    let filtered = [...newData];
+
+    // Use stored search term instead of reading from DOM
+    if (currentSearchInput) {
       filtered = filtered.filter(item =>
         Object.values(item).some(value =>
-          value?.toString().toLowerCase().includes(currentSearchTerm.toLowerCase())
+          value?.toString().toLowerCase().includes(currentSearchInput.toLowerCase())
         )
       );
     }
@@ -322,8 +400,32 @@ const ConstructionTracker = () => {
       filtered = filtered.filter(item => !item.totalBudgetWithTax || item.totalBudgetWithTax === '');
     }
 
-    setSearchTerm(currentSearchTerm);
     setFilteredProperties(filtered);
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchSheetData();
+      const interval = setInterval(fetchSheetData, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
+  const handleManualRefresh = () => {
+    // Don't reset filters/search during manual refresh either
+    fetchSheetData();
+  };
+
+  const applyFilters = () => {
+    const searchInput = document.querySelector('input[placeholder="Search all fields..."]');
+    const searchValue = searchInput ? searchInput.value : '';
+    
+    // Update the search input state
+    setCurrentSearchInput(searchValue);
+    setSearchTerm(searchValue);
+    
+    // Apply filters to current data
+    applyFiltersToData(properties);
   };
 
   const handleFilterChange = (filterType, value) => {
@@ -338,6 +440,7 @@ const ConstructionTracker = () => {
       budgetStatus: 'all'
     });
     setSearchTerm('');
+    setCurrentSearchInput('');
     const searchInput = document.querySelector('input[placeholder="Search all fields..."]');
     if (searchInput) searchInput.value = '';
     setFilteredProperties(properties);
@@ -345,36 +448,102 @@ const ConstructionTracker = () => {
 
   // Function to update a single cell in Google Sheets
   const updateSheetCell = async (rowIndex, columnLetter, newValue) => {
+  try {
+    const response = await fetch('/api/sheets', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        rowIndex,
+        columnLetter,
+        newValue
+      })
+    });
+
+    const result = await response.json();
+    
+    if (!response.ok) {
+      throw new Error(result.message || 'Update failed');
+    }
+    
+    showToastMessage(`✅ ${result.message}`, 2000);
+    return true;
+    
+  } catch (error) {
+    console.error('Error updating sheet:', error);
+    showToastMessage(`❌ Failed to update cell: ${error.message}`, 4000);
+    throw error;
+  }
+};
+
+// Alternative function for testing (with better error handling)
+const updateSheetCellWithFallback = async (rowIndex, columnLetter, newValue) => {
+  try {
+    const range = `${columnLetter}${rowIndex}`;
+    
+    console.log(`Updating ${range} with value: ${newValue}`);
+    
+    // Try the normal fetch first
     try {
-      const range = `${SHEET_NAME}!${columnLetter}${rowIndex}`;
-      
-      console.log(`Updating ${range} with value: ${newValue}`);
-      
-      // Google Sheets API call to update single cell
-      const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}?valueInputOption=RAW&key=${API_KEY}`, {
-        method: 'PUT',
+      const response = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          values: [[newValue]]
+          sheetId: SHEET_ID,
+          range: range,
+          value: newValue
         })
       });
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Sheets API Error:', errorData);
-        throw new Error(`Failed to update sheet: ${errorData.error?.message || 'Unknown error'}`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          showToastMessage(`✅ Cell ${range} updated successfully!`, 2000);
+          return true;
+        } else {
+          throw new Error(result.error || 'Update failed');
+        }
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      const result = await response.json();
-      console.log('Sheet updated successfully:', result);
+    } catch (fetchError) {
+      console.warn('Fetch failed, trying alternative method:', fetchError.message);
+      
+      // Fallback: Use form submission method
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = APPS_SCRIPT_URL;
+      form.target = '_blank';
+      form.style.display = 'none';
+      
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = 'data';
+      input.value = JSON.stringify({
+        sheetId: SHEET_ID,
+        range: range,
+        value: newValue
+      });
+      
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+      document.body.removeChild(form);
+      
+      showToastMessage(`📤 Update request sent to Google Sheets`, 2000);
       return true;
-    } catch (error) {
-      console.error('Error updating sheet:', error);
-      throw error;
     }
-  };
+    
+  } catch (error) {
+    console.error('Error updating sheet:', error);
+    showToastMessage(`❌ Failed to update cell: ${error.message}`, 4000);
+    throw error;
+  }
+};
 
   // Get column letter for field name
   const getColumnLetter = (fieldName) => {
@@ -410,109 +579,297 @@ const ConstructionTracker = () => {
 
   // --- EditableCell: renders a <td> that can turn into an <input> on click ---
   const EditableCell = ({ item, fieldName, value, className, children }) => {
-    const [editing, setEditing] = useState(false);
-    const [editValue, setEditValue] = useState(value);
-    const userRole = currentUser?.role;
-    const editable = isFieldEditable(fieldName, userRole);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+  const userRole = currentUser?.role;
+  const editable = isFieldEditable(fieldName, userRole);
 
-    // when input loses focus or Enter is pressed
-    const handleSave = async () => {
-      setEditing(false);
-      if (editValue !== value) {
-        try {
-          await updateSheetCell(item.rowIndex, getColumnLetter(fieldName), editValue);
-          // update in-memory state so UI reflects change immediately
-          setProperties(prev =>
-            prev.map(p => p.id === item.id ? { ...p, [fieldName]: editValue } : p)
-          );
-          setFilteredProperties(prev =>
-            prev.map(p => p.id === item.id ? { ...p, [fieldName]: editValue } : p)
-          );
-        } catch (error) {
-          console.error('Error saving cell:', error);
-          // Reset to original value on error
-          setEditValue(value);
-        }
+  // when input loses focus or Enter is pressed
+  const handleSave = async () => {
+    setEditing(false);
+    if (editValue !== value) {
+      try {
+        // Update Google Sheets
+        await updateSheetCell(item.rowIndex, getColumnLetter(fieldName), editValue);
+        
+        // Update local state immediately for instant UI feedback
+        setProperties(prev =>
+          prev.map(p => p.id === item.id ? { ...p, [fieldName]: editValue } : p)
+        );
+        setFilteredProperties(prev =>
+          prev.map(p => p.id === item.id ? { ...p, [fieldName]: editValue } : p)
+        );
+        
+        console.log(`Local state updated: ${fieldName} = ${editValue}`);
+        
+      } catch (error) {
+        console.error('Error saving cell:', error);
+        // Reset to original value on error
+        setEditValue(value);
+        
+        // Revert local state if there was an error
+        setProperties(prev =>
+          prev.map(p => p.id === item.id ? { ...p, [fieldName]: value } : p)
+        );
+        setFilteredProperties(prev =>
+          prev.map(p => p.id === item.id ? { ...p, [fieldName]: value } : p)
+        );
       }
-    };
-
-    // Update editValue when value prop changes
-    useEffect(() => {
-      setEditValue(value);
-    }, [value]);
-
-    // Handle click to edit (prevent event bubbling from links)
-    const handleEditClick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setEditing(true);
-    };
-
-    // if user shouldn't edit this field, just render normal cell
-    if (!editable) {
-      return <td className={className}>{children}</td>;
     }
-
-    // Special handling for link fields
-    if (fieldName === 'link' && value && !editing) {
-      return (
-        <td className={className}>
-          <div className="flex items-center space-x-2 group">
-            <a 
-              href={value} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 transition-colors duration-200 underline flex-1"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {formatLink(value)}
-            </a>
-            <button
-              onClick={handleEditClick}
-              className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-gray-600 hover:bg-gray-500 text-white text-xs px-2 py-1 rounded"
-              title="Edit link"
-            >
-              Edit
-            </button>
-          </div>
-        </td>
-      );
-    }
-
-    // editable: show input when in editing mode
-    return (
-      <td className={className}>
-        {editing ? (
-          <input
-            className="w-full bg-gray-700/50 text-white rounded px-2 py-1 border border-gray-600 focus:border-blue-400 focus:outline-none"
-            value={editValue}
-            onChange={e => setEditValue(e.target.value)}
-            onBlur={handleSave}
-            onKeyDown={e => {
-              if (e.key === 'Enter') {
-                handleSave();
-              } else if (e.key === 'Escape') {
-                setEditValue(value);
-                setEditing(false);
-              }
-            }}
-            autoFocus
-            placeholder={fieldName === 'link' ? 'Enter URL...' : 'Enter value...'}
-          />
-        ) : (
-          <div 
-            className="cursor-pointer hover:bg-gray-600/30 rounded px-1 py-0.5 transition-colors duration-200" 
-            onClick={handleEditClick}
-            title="Click to edit"
-          >
-            {children || <span className="text-gray-500 italic">Click to add...</span>}
-          </div>
-        )}
-      </td>
-    );
   };
 
+  // Update editValue when value prop changes
+  useEffect(() => {
+    setEditValue(value);
+  }, [value]);
+
+  // Handle click to edit (prevent event bubbling from links)
+  const handleEditClick = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditing(true);
+  };
+
+  // if user shouldn't edit this field, just render normal cell
+  if (!editable) {
+    return <td className={className}>{children}</td>;
+  }
+
+  // Special handling for link fields
+  if (fieldName === 'link' && value && !editing) {
+    return (
+      <td className={className}>
+        <div className="flex items-center space-x-2 group">
+          <a 
+            href={value} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 transition-colors duration-200 underline flex-1"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {formatLink(value)}
+          </a>
+          <button
+            onClick={handleEditClick}
+            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-gray-600 hover:bg-gray-500 text-white text-xs px-2 py-1 rounded"
+            title="Edit link"
+          >
+            Edit
+          </button>
+        </div>
+      </td>
+    );
+  }
+
+  // editable: show input when in editing mode
+  return (
+    <td className={className}>
+      {editing ? (
+        <input
+          className="w-full bg-gray-700/50 text-white rounded px-2 py-1 border border-gray-600 focus:border-blue-400 focus:outline-none"
+          value={editValue}
+          onChange={e => setEditValue(e.target.value)}
+          onBlur={handleSave}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              handleSave();
+            } else if (e.key === 'Escape') {
+              setEditValue(value);
+              setEditing(false);
+            }
+          }}
+          autoFocus
+          placeholder={fieldName === 'link' ? 'Enter URL...' : 'Enter value...'}
+        />
+      ) : (
+        <div 
+          className="cursor-pointer hover:bg-gray-600/30 rounded px-1 py-0.5 transition-colors duration-200" 
+          onClick={handleEditClick}
+          title="Click to edit"
+        >
+          {children || <span className="text-gray-500 italic">Click to add...</span>}
+        </div>
+      )}
+    </td>
+  );
+};
+
   const activeFiltersCount = Object.values(filters).filter(value => value && value !== 'all').length + (searchTerm ? 1 : 0);
+
+  // Modern Hamburger Menu Component
+const HamburgerMenu = () => {
+  return (
+    <button
+      onClick={() => setIsNavOpen(!isNavOpen)}
+      className="group relative w-10 h-10 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 border border-gray-600/50 transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+      aria-label="Toggle navigation menu"
+    >
+      <div className="absolute inset-0 flex flex-col justify-center items-center space-y-1.5">
+        <span
+          className={`block h-0.5 w-6 bg-white rounded-full transition-all duration-300 ease-in-out transform-gpu ${
+            isNavOpen 
+              ? 'rotate-45 translate-y-2 bg-blue-400' 
+              : 'group-hover:w-7 group-hover:bg-blue-300'
+          }`}
+        />
+        <span
+          className={`block h-0.5 w-6 bg-white rounded-full transition-all duration-300 ease-in-out transform-gpu ${
+            isNavOpen 
+              ? 'opacity-0 scale-0' 
+              : 'group-hover:w-5 group-hover:bg-blue-300'
+          }`}
+        />
+        <span
+          className={`block h-0.5 w-6 bg-white rounded-full transition-all duration-300 ease-in-out transform-gpu ${
+            isNavOpen 
+              ? '-rotate-45 -translate-y-2 bg-blue-400' 
+              : 'group-hover:w-7 group-hover:bg-blue-300'
+          }`}
+        />
+      </div>
+      
+      {/* Ripple effect */}
+      <div className="absolute inset-0 rounded-lg overflow-hidden">
+        <div className={`absolute inset-0 bg-blue-500/20 rounded-lg transform scale-0 transition-transform duration-300 ${
+          isNavOpen ? 'scale-100' : 'scale-0'
+        }`} />
+      </div>
+    </button>
+  );
+};
+
+// Modern Navigation Sidebar Component
+const NavigationSidebar = () => {
+  if (!isNavOpen) return null;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 transition-opacity duration-300"
+        onClick={() => setIsNavOpen(false)}
+      />
+      
+      {/* Sidebar */}
+      <div className={`fixed left-0 top-0 h-full w-80 bg-gray-900/95 backdrop-blur-xl border-r border-gray-700/50 z-50 transform transition-all duration-500 ease-out ${
+        isNavOpen ? 'translate-x-0' : '-translate-x-full'
+      }`}>
+        {/* Header */}
+        <div className="p-6 border-b border-gray-700/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <Home className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-white">Shriji Tracker</h2>
+                <p className="text-gray-400 text-sm">Navigation</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsNavOpen(false)}
+              className="w-8 h-8 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 flex items-center justify-center transition-colors duration-200"
+            >
+              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Navigation Items */}
+        <div className="p-4 space-y-2">
+          {navigationItems.map((item, index) => {
+            const Icon = item.icon;
+            const isActive = currentPage === item.id;
+            
+            return (
+              <button
+                key={item.id}
+                onClick={() => handlePageChange(item.id)}
+                className={`group relative w-full p-4 rounded-xl text-left transition-all duration-300 transform hover:scale-[1.02] ${
+                  isActive 
+                    ? 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 text-white' 
+                    : 'bg-gray-800/50 hover:bg-gray-700/50 border border-gray-700/50 text-gray-300 hover:text-white'
+                }`}
+                style={{
+                  animationDelay: `${index * 100}ms`,
+                  animation: isNavOpen ? 'slideInFromLeft 0.5s ease-out forwards' : ''
+                }}
+              >
+                {/* Active indicator */}
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-gradient-to-b from-blue-500 to-purple-600 rounded-r-full" />
+                )}
+                
+                {/* Content */}
+                <div className="flex items-center space-x-4">
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300 ${
+                    isActive 
+                      ? 'bg-blue-500/20 text-blue-400' 
+                      : 'bg-gray-700/50 text-gray-400 group-hover:bg-gray-600/50 group-hover:text-blue-400'
+                  }`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className={`font-semibold transition-colors duration-300 ${
+                      isActive ? 'text-white' : 'text-gray-300 group-hover:text-white'
+                    }`}>
+                      {item.name}
+                    </h3>
+                    <p className={`text-sm transition-colors duration-300 ${
+                      isActive ? 'text-blue-300' : 'text-gray-500 group-hover:text-gray-400'
+                    }`}>
+                      {item.description}
+                    </p>
+                  </div>
+                  {isActive && (
+                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" />
+                  )}
+                </div>
+
+                {/* Hover effect */}
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-blue-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-700/50">
+          <div className="bg-gray-800/50 rounded-lg p-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                <UserCircle className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1">
+                <p className="text-white text-sm font-medium">{currentUser?.username || 'User'}</p>
+                <p className="text-gray-400 text-xs">{currentUser?.role}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
+
+// Remove the old ProjectSummaryPage component and replace with:
+const ProjectSummaryPage = () => {
+  return (
+    <ProjectSummary
+      properties={properties}
+      filteredProperties={filteredProperties}
+      setFilteredProperties={setFilteredProperties}
+      setProperties={setProperties}  // Add this line
+      updateSheetCell={updateSheetCell}
+      getColumnLetter={getColumnLetter}
+      isFieldEditable={isFieldEditable}
+      currentUser={currentUser}
+      formatLink={formatLink}
+    />
+  );
+};
 
   const formatCurrency = (value) => {
     if (!value || value === "") return "";
@@ -569,7 +926,8 @@ const ConstructionTracker = () => {
 
     useEffect(() => {
       const handleClickOutside = (event) => {
-        if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+            buttonRef.current && !buttonRef.current.contains(event.target)) {
           setIsOpen(false);
         }
       };
@@ -589,8 +947,13 @@ const ConstructionTracker = () => {
       }
     }, [isOpen]);
 
+    const handleToggle = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setIsOpen(prev => !prev);
+    };
+
     const handleSelect = (optionValue) => {
-      console.log('Selected value:', optionValue); // Debug log
       onChange(optionValue);
       setIsOpen(false);
     };
@@ -620,7 +983,6 @@ const ConstructionTracker = () => {
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log('Button clicked:', option.value); // Debug log
                   handleSelect(option.value);
                 }}
                 className={`w-full px-3 py-2 text-left text-sm transition-colors duration-200 hover:bg-gray-700/70 first:rounded-t-lg last:rounded-b-lg ${
@@ -644,14 +1006,14 @@ const ConstructionTracker = () => {
         <button
           ref={buttonRef}
           type="button"
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handleToggle}
           className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 transition-all duration-300 ease-in-out transform hover:scale-[1.02] focus:scale-[1.02] flex items-center justify-between"
         >
           <span className={value ? 'text-white' : 'text-gray-400'}>
             {displayValue}
           </span>
           <svg
-            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 text-gray-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'rotate-0'}`}
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -780,357 +1142,185 @@ const ConstructionTracker = () => {
     );
   };
 
-  // Auth form component
-  const AuthForm = ({ mode, onSubmit, onModeChange, loading }) => {
-    const [formData, setFormData] = useState({
-      identifier: '',
-      email: '',
-      username: '',
-      password: '',
-      inviteCode: ''
-    });
-
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      
-      try {
-        await onSubmit(formData, mode);
-      } catch (error) {
-        // Error is handled by toast in handleAuth
-      }
-    };
-
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center p-6">
-        <div className="bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 rounded-3xl p-8 w-full max-w-md shadow-2xl">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              {mode === 'login' ? <Lock className="w-8 h-8 text-white" /> : <UserPlus className="w-8 h-8 text-white" />}
-            </div>
-            <h1 className="text-3xl font-bold text-white mb-2">
-              {mode === 'login' ? 'Welcome Back' : 'Join Shriji'}
-            </h1>
-            <p className="text-gray-400">
-              {mode === 'login' ? 'Sign in to your account' : 'Create your account'}
-            </p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {mode === 'register' && (
-              <>
-                <div className="group focus-within:text-blue-400">
-                  <label className="block text-sm font-medium text-gray-300 mb-2 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">Email *</label>
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
-                    placeholder="Enter your email"
-                  />
-                </div>
-
-                <div className="group focus-within:text-blue-400">
-                  <label className="block text-sm font-medium text-gray-300 mb-2 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">Username (Optional)</label>
-                  <input
-                    type="text"
-                    value={formData.username}
-                    onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
-                    placeholder="Choose a username"
-                  />
-                </div>
-
-                <div className="group focus-within:text-blue-400">
-                  <label className="block text-sm font-medium text-gray-300 mb-2 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">Invite Code *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.inviteCode}
-                    onChange={(e) => setFormData(prev => ({ ...prev, inviteCode: e.target.value }))}
-                    className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
-                    placeholder="Enter invite code"
-                  />
-                </div>
-              </>
-            )}
-
-            {mode === 'login' && (
-              <div className="group focus-within:text-blue-400">
-                <label className="block text-sm font-medium text-gray-300 mb-2 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">Email or Username</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.identifier}
-                  onChange={(e) => setFormData(prev => ({ ...prev, identifier: e.target.value }))}
-                  className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
-                  placeholder="Enter email or username"
-                />
-              </div>
-            )}
-
-            <div className="group focus-within:text-blue-400">
-              <label className="block text-sm font-medium text-gray-300 mb-2 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  required
-                  value={formData.password}
-                  onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-                  className="w-full px-4 py-3 pr-12 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
-                  placeholder="Enter your password"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors duration-200"
-                >
-                  {showPassword ? (
-                    <EyeOff className="w-5 h-5" />
-                  ) : (
-                    <Eye className="w-5 h-5" />
-                  )}
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 disabled:opacity-50 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:hover:scale-100"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>{mode === 'login' ? 'Signing In...' : 'Creating Account...'}</span>
-                </div>
-              ) : (
-                mode === 'login' ? 'Sign In' : 'Create Account'
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => onModeChange(mode === 'login' ? 'register' : 'login')}
-              className="text-blue-400 hover:text-blue-300 transition-colors duration-200"
-            >
-              {mode === 'login' 
-                ? "Don't have an account? Sign up" 
-                : 'Already have an account? Sign in'
-              }
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
+  
 
   // Profile dropdown component
-  const ProfileDropdown = ({ user, onUpdate, onLogout, loading }) => {
-    const [isEditing, setIsEditing] = useState(false);
-    const [editData, setEditData] = useState({
-      username: user.username || '',
-      email: user.email
-    });
-    const [editError, setEditError] = useState('');
-
-    const handleUpdate = async (e) => {
-      e.preventDefault();
-      setEditError('');
-      
-      try {
-        await onUpdate(editData);
-        setIsEditing(false);
-      } catch (error) {
-        setEditError(error.message);
-      }
-    };
-
-    return (
-      <div className="absolute right-0 top-full mt-2 w-80 bg-gray-800/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl z-50 transform-gpu">
-        <div className="p-6">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-              <UserCircle className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h3 className="text-white font-semibold">{user.username || 'User'}</h3>
-              <p className="text-gray-400 text-sm">{user.email}</p>
-              <span className="inline-block bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded-full mt-1">
-                {user.role}
-              </span>
-            </div>
+  const ProfileDropdown = ({ user, onLogout, loading }) => {
+  return (
+    <div className="absolute right-0 top-full mt-2 w-80 bg-gray-800/95 backdrop-blur-xl border border-gray-700/50 rounded-2xl shadow-2xl z-50 transform-gpu">
+      <div className="p-6">
+        <div className="flex items-center space-x-3 mb-6">
+          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <UserCircle className="w-7 h-7 text-white" />
           </div>
+          <div>
+            <h3 className="text-white font-semibold">{user.username || 'User'}</h3>
+            <p className="text-gray-400 text-sm">{user.email}</p>
+            <span className="inline-block bg-blue-500/20 text-blue-300 text-xs px-2 py-1 rounded-full mt-1">
+              {user.role}
+            </span>
+          </div>
+        </div>
 
-          {isEditing ? (
-            <form onSubmit={handleUpdate} className="space-y-4">
-              {editError && (
-                <div className="bg-red-500/20 border border-red-500/50 text-red-300 px-3 py-2 rounded-lg text-sm">
-                  {editError}
-                </div>
-              )}
-              
-              <div className="group">
-                <label className="block text-sm font-medium text-gray-300 mb-1 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">Username</label>
-                <input
-                  type="text"
-                  value={editData.username}
-                  onChange={(e) => setEditData(prev => ({ ...prev, username: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
-                  placeholder="Enter username"
-                />
-              </div>
-              
-              <div className="group">
-                <label className="block text-sm font-medium text-gray-300 mb-1 transition-all duration-200 group-focus-within:text-blue-400 group-focus-within:scale-105 transform origin-left">Email</label>
-                <input
-                  type="email"
-                  required
-                  value={editData.email}
-                  onChange={(e) => setEditData(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-400 focus:bg-gray-700/70 focus:scale-[1.02] transition-all duration-200 transform-gpu"
-                />
-              </div>
-              
-              <div className="flex space-x-2">
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors duration-200"
-                >
-                  {loading ? 'Saving...' : 'Save'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="flex-1 bg-gray-600 hover:bg-gray-500 text-white text-sm font-medium py-2 px-3 rounded-lg transition-colors duration-200"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-3">
-              <button
-                onClick={() => setIsEditing(true)}
-                className="w-full flex items-center space-x-3 px-4 py-3 bg-gray-700/50 hover:bg-gray-600/50 rounded-lg transition-colors duration-200 text-left"
-              >
-                <Settings className="w-4 h-4 text-gray-400" />
-                <span className="text-gray-300">Edit Profile</span>
-              </button>
-              
-              <button
-                onClick={onLogout}
-                className="w-full flex items-center space-x-3 px-4 py-3 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors duration-200 text-left"
-              >
-                <LogOut className="w-4 h-4 text-red-400" />
-                <span className="text-red-300">Sign Out</span>
-              </button>
-            </div>
-          )}
+        <div className="space-y-3">
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center space-x-3 px-4 py-3 bg-red-500/20 hover:bg-red-500/30 rounded-lg transition-colors duration-200 text-left"
+          >
+            <LogOut className="w-4 h-4 text-red-400" />
+            <span className="text-red-300">Sign Out</span>
+          </button>
         </div>
       </div>
-    );
-  };
-
-  if (!isAuthenticated) {
-    return (
-      <>
-        {showLoginSuccess && <LoginSuccessAnimation user={currentUser} />}
-        {!showLoginSuccess && (
-          <AuthForm
-            mode={authMode}
-            onSubmit={handleAuth}
-            onModeChange={setAuthMode}
-            loading={authLoading}
-          />
-        )}
-        <ToastNotification 
-          message={toastMessage} 
-          show={showToast} 
-          onClose={() => setShowToast(false)} 
-        />
-      </>
-    );
-  }
+    </div>
+  );
+};
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-      <ToastNotification 
-        message={toastMessage} 
-        show={showToast} 
-        onClose={() => setShowToast(false)} 
-      />
-      
-      <div className="relative z-50 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
+ <>
+   {showLoginSuccess && <LoginSuccessAnimation user={currentUser} />}
+   
+   {!isAuthenticated && !showLoginSuccess && (
+     <>
+       <AuthForm
+         mode={authMode}
+         onSubmit={handleAuth}
+         onModeChange={setAuthMode}
+         loading={loginLoading}
+       />
+       <ToastNotification 
+         message={toastMessage} 
+         show={showToast} 
+         onClose={() => setShowToast(false)} 
+       />
+     </>
+   )}
+
+{isAuthenticated && !showLoginSuccess && (
+  <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+    <style jsx>{`
+      @keyframes slideInFromLeft {
+        from {
+          opacity: 0;
+          transform: translateX(-30px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+    `}</style>
+    
+    <ToastNotification 
+      message={toastMessage} 
+      show={showToast} 
+      onClose={() => setShowToast(false)} 
+    />
+    
+    {/* Navigation Sidebar */}
+    <NavigationSidebar />
+    
+    <div className="relative z-50 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
+      <div className="px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            {/* Hamburger Menu */}
+            <HamburgerMenu />
+            
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
                 <Home className="w-6 h-6 text-white" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white">Shriji Task Tracker</h1>
-                <p className="text-gray-400 text-sm">Construction Project Management</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={handleManualRefresh}
-                disabled={loading}
-                className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded-lg transition-colors duration-200"
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                <span className="text-white text-sm">
-                  {loading ? 'Updating...' : 'Refresh'}
-                </span>
-              </button>
-              <div className="bg-gray-700/50 px-4 py-2 rounded-lg border border-gray-600/50">
-                <span className="text-gray-300 text-sm">
-                  {filteredProperties.length !== properties.length 
-                    ? `${filteredProperties.length} of ${properties.length} items` 
-                    : `Total Items: ${properties.length}`
-                  }
-                </span>
-              </div>
-              {lastUpdated && (
-                <div className="text-gray-400 text-sm">
-                  Last updated: {lastUpdated.toLocaleTimeString()}
-                </div>
-              )}
-              
-              <div className="relative">
-                <button
-                  onClick={() => setShowProfile(prev => !prev)}
-                  className="flex items-center space-x-2 bg-gray-700/50 hover:bg-gray-600/50 px-3 py-2 rounded-lg border border-gray-600/50 transition-colors duration-200"
-                >
-                  <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                    <UserCircle className="w-5 h-5 text-white" />
-                  </div>
-                  <span className="text-white text-sm">{currentUser.username || 'User'} ({currentUser.role})</span>
-                </button>
-                
-                {showProfile && (
-                  <ProfileDropdown
-                    user={currentUser}
-                    onUpdate={updateProfile}
-                    onLogout={handleLogout}
-                    loading={authLoading}
-                  />
-                )}
+                <p className="text-gray-400 text-sm">
+                  {navigationItems.find(item => item.id === currentPage)?.name || 'Construction Project Management'}
+                </p>
               </div>
             </div>
           </div>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={handleManualRefresh}
+              disabled={loading}
+              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded-lg transition-colors duration-200"
+            >
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+              <span className="text-white text-sm">
+                {loading ? 'Updating...' : 'Refresh'}
+              </span>
+            </button>
+            <div className="bg-gray-700/50 px-4 py-2 rounded-lg border border-gray-600/50">
+              <span className="text-gray-300 text-sm">
+                {filteredProperties.length !== properties.length 
+                  ? `${filteredProperties.length} of ${properties.length} items` 
+                  : `Total Items: ${properties.length}`
+                }
+              </span>
+            </div>
+            {lastUpdated && (
+              <div className="text-gray-400 text-sm">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </div>
+            )}
+            
+            
+
+
+<div className="relative">
+  <button
+    onClick={() => setShowProfile(prev => !prev)}
+    className="flex items-center space-x-3 bg-gray-700/50 hover:bg-gray-600/50 px-4 py-2 rounded-xl border border-gray-600/50 transition-all duration-300 ease-in-out transform hover:scale-[1.02] focus:scale-[1.02] group"
+  >
+    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+      <UserCircle className="w-6 h-6 text-white" />
+    </div>
+    <div className="text-left">
+      <div className="relative">
+        {/* Glowing text effect */}
+        <div className="absolute inset-0 text-lg font-bold text-white/20 blur-sm">
+          {currentUser.username || currentUser.email?.split('@')[0] || 'User'}
+        </div>
+        {/* Main text with gradient */}
+        <div className="relative text-lg font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent group-hover:from-blue-200 group-hover:via-white group-hover:to-blue-200 transition-all duration-300">
+          {currentUser.username || currentUser.email?.split('@')[0] || 'User'}
         </div>
       </div>
+      <div className="text-xs text-gray-400 font-medium tracking-wider">
+        Welcome back
+      </div>
+    </div>
+    <div className="w-4 h-4 text-gray-400 group-hover:text-blue-300 transition-all duration-300">
+      <svg 
+        className={`w-4 h-4 transition-transform duration-300 ${showProfile ? 'rotate-180' : 'rotate-0'}`}
+        fill="none" 
+        stroke="currentColor" 
+        viewBox="0 0 24 24"
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+  </button>
+  
+  {showProfile && (
+    <ProfileDropdown
+      user={currentUser}
+      onLogout={handleLogout}
+      loading={authLoading}
+    />
+  )}
+</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    {/* Main Content */}
+    {currentPage === 'detailed-breakdown' ? (
       <div className="p-6">
         <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -1153,6 +1343,8 @@ const ConstructionTracker = () => {
                 <input
                   type="text"
                   placeholder="Search all fields..."
+                  value={currentSearchInput}
+                  onChange={(e) => setCurrentSearchInput(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -1273,26 +1465,62 @@ const ConstructionTracker = () => {
               <tbody className="divide-y divide-gray-700/50">
                 {filteredProperties.map((item, index) => (
                   <tr key={item.id} className="hover:bg-gray-700/20 transition-colors duration-200">
-                    <td className="px-4 py-4 text-sm text-gray-300">
+                    <EditableCell 
+                      item={item} 
+                      fieldName="propertyName" 
+                      value={item.propertyName}
+                      className="px-4 py-4 text-sm text-gray-300"
+                    >
                       <div className="flex items-center space-x-2">
                         <MapPin className="w-4 h-4 text-blue-400" />
                         <span className="font-medium">{item.propertyName}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-300">
+                    </EditableCell>
+                    <EditableCell 
+                      item={item} 
+                      fieldName="category" 
+                      value={item.category}
+                      className="px-4 py-4 text-sm text-gray-300"
+                    >
                       <div className="flex items-center space-x-2">
                         <Package className="w-4 h-4 text-green-400" />
                         <span>{item.category}</span>
                       </div>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-300">
+                    </EditableCell>
+                    <EditableCell 
+                      item={item} 
+                      fieldName="floor" 
+                      value={item.floor}
+                      className="px-4 py-4 text-sm text-gray-300"
+                    >
                       <span className="bg-gray-700/50 px-2 py-1 rounded-md text-xs">
                         {item.floor}
                       </span>
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-300">{item.location}</td>
-                    <td className="px-4 py-4 text-sm text-gray-300 font-medium">{item.itemDescription}</td>
-                    <td className="px-4 py-4 text-sm text-gray-300">{item.sizeType}</td>
+                    </EditableCell>
+                    <EditableCell 
+                      item={item} 
+                      fieldName="location" 
+                      value={item.location}
+                      className="px-4 py-4 text-sm text-gray-300"
+                    >
+                      {item.location}
+                    </EditableCell>
+                    <EditableCell 
+                      item={item} 
+                      fieldName="itemDescription" 
+                      value={item.itemDescription}
+                      className="px-4 py-4 text-sm text-gray-300 font-medium"
+                    >
+                      {item.itemDescription}
+                    </EditableCell>
+                    <EditableCell 
+                      item={item} 
+                      fieldName="sizeType" 
+                      value={item.sizeType}
+                      className="px-4 py-4 text-sm text-gray-300"
+                    >
+                      {item.sizeType}
+                    </EditableCell>
                     <EditableCell 
                       item={item} 
                       fieldName="hardwareType" 
@@ -1301,11 +1529,16 @@ const ConstructionTracker = () => {
                     >
                       {item.hardwareType}
                     </EditableCell>
-                    <td className="px-4 py-4 text-sm text-gray-300">
+                    <EditableCell 
+                      item={item} 
+                      fieldName="quantity" 
+                      value={item.quantity}
+                      className="px-4 py-4 text-sm text-gray-300"
+                    >
                       <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-md text-xs font-medium">
                         {item.quantity}
                       </span>
-                    </td>
+                    </EditableCell>
                     <EditableCell 
                       item={item} 
                       fieldName="link" 
@@ -1327,22 +1560,32 @@ const ConstructionTracker = () => {
                         </div>
                       )}
                     </EditableCell>
-                    <td className="px-4 py-4 text-sm text-gray-300">
+                    <EditableCell 
+                      item={item} 
+                      fieldName="allowancePerItem" 
+                      value={item.allowancePerItem}
+                      className="px-4 py-4 text-sm text-gray-300"
+                    >
                       {item.allowancePerItem && (
                         <div className="flex items-center space-x-1">
                           <DollarSign className="w-4 h-4 text-yellow-400" />
                           <span className="font-medium text-yellow-300">{formatCurrency(item.allowancePerItem)}</span>
                         </div>
                       )}
-                    </td>
-                    <td className="px-4 py-4 text-sm text-gray-300">
+                    </EditableCell>
+                    <EditableCell 
+                      item={item} 
+                      fieldName="totalBudgetWithTax" 
+                      value={item.totalBudgetWithTax}
+                      className="px-4 py-4 text-sm text-gray-300"
+                    >
                       {item.totalBudgetWithTax && (
                         <div className="flex items-center space-x-1">
                           <DollarSign className="w-4 h-4 text-green-400" />
                           <span className="font-medium text-green-300">{formatCurrency(item.totalBudgetWithTax)}</span>
                         </div>
                       )}
-                    </td>
+                    </EditableCell>
                     <EditableCell 
                       item={item} 
                       fieldName="notes" 
@@ -1357,12 +1600,17 @@ const ConstructionTracker = () => {
                         </div>
                       )}
                     </EditableCell>
-                    <td className="px-4 py-4 text-sm text-gray-300">
+                    <EditableCell 
+                      item={item} 
+                      fieldName="qualityToBeOrdered" 
+                      value={item.qualityToBeOrdered}
+                      className="px-4 py-4 text-sm text-gray-300"
+                    >
                       <div className="flex items-center space-x-1">
                         <CheckCircle className="w-4 h-4 text-green-400" />
                         <span>{item.qualityToBeOrdered}</span>
                       </div>
-                    </td>
+                    </EditableCell>
                     <EditableCell 
                       item={item} 
                       fieldName="pricePerItem" 
@@ -1442,7 +1690,12 @@ const ConstructionTracker = () => {
                         </div>
                       )}
                     </EditableCell>
-                    <td className="px-4 py-4 text-sm text-gray-300">
+                    <EditableCell 
+                      item={item} 
+                      fieldName="ordered" 
+                      value={item.ordered}
+                      className="px-4 py-4 text-sm text-gray-300"
+                    >
                       {item.ordered && (
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           item.ordered.toLowerCase() === 'y' || item.ordered.toLowerCase() === 'yes' 
@@ -1452,7 +1705,7 @@ const ConstructionTracker = () => {
                           {item.ordered}
                         </span>
                       )}
-                    </td>
+                    </EditableCell>
                     <EditableCell 
                       item={item} 
                       fieldName="orderId" 
@@ -1560,15 +1813,20 @@ const ConstructionTracker = () => {
           </div>
         </div>
       </div>
+    ) : (
+      <ProjectSummaryPage />
+    )}
 
-      {showProfile && (
-        <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setShowProfile(false)}
-        ></div>
-      )}
-    </div>
-  );
+    {showProfile && (
+      <div 
+        className="fixed inset-0 z-40" 
+        onClick={() => setShowProfile(false)}
+      ></div>
+    )}
+  </div>
+  )}
+  </>
+);
 };
 
 export default ConstructionTracker;
