@@ -1,84 +1,66 @@
+// app/api/sheets/route.js
 import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth/next'
+import { auth } from '@/auth.js'
+
+const SHEET_ID = process.env.GOOGLE_SHEETS_ID
+const SHEET_NAME = 'Detailed breakdown'
+const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL
+const SHEET_RANGE = 'A1:Z5000'
+const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_API_KEY
 
 export async function GET() {
-  const session = await getServerSession()
+  const session = await auth()
+  
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
-    // Google Sheets configuration (from your page.js)
-    const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
-    const SHEET_NAME = 'Detailed breakdown';
-    const SHEET_RANGE = 'A1:Z5000';
-    const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_API_KEY;
-
-    // Fetch from Google Sheets API
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!${SHEET_RANGE}?key=${API_KEY}`;
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!${SHEET_RANGE}?key=${API_KEY}`
     
-    const response = await fetch(url);
+    const response = await fetch(url)
+    const data = await response.json()
     
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      throw new Error(data.error?.message || 'Failed to fetch sheet data')
     }
     
-    const data = await response.json();
-    
-    if (!data.values || data.values.length === 0) {
-      throw new Error('No data found in sheet');
+    const rows = data.values || []
+    if (rows.length === 0) {
+      return NextResponse.json({ data: [] })
     }
     
-    // Transform data (same logic as your fetchSheetData)
-    const transformedData = data.values.slice(1).map((row, index) => {
-      return {
-        id: index + 1,
-        rowIndex: index + 2,
-        propertyName: row[0] || '',
-        category: row[1] || '',
-        floor: row[3] || '',
-        location: row[4] || '',
-        itemDescription: row[5] || '',
-        sizeType: row[6] || '',
-        hardwareType: row[7] || '',
-        quantity: row[8] || 0,
-        link: row[9] || '',
-        vendor: row[10] || '',
-        allowancePerItem: row[11] || '',
-        totalBudgetWithTax: row[12] || '',
-        notes: row[13] || '',
-        qualityToBeOrdered: row[14] || 0,
-        pricePerItem: row[15] || '',
-        totalPriceWithTax: row[16] || '',
-        differenceFromAllowance: row[17] || '',
-        shrijiShare: row[18] || '',
-        clientShare: row[19] || '',
-        shrijiComments: row[20] || '',
-        ordered: row[21] || '',
-        orderId: row[22] || '',
-        orderDate: row[23] || '',
-        priority: row[24] || '',
-        approval: row[25] || ''
-      };
-    }).filter(item => item.propertyName);
-
-    return NextResponse.json({ 
-      success: true, 
-      data: transformedData,
-      lastUpdated: new Date().toISOString()
-    })
-
+    const headers = rows[0]
+    const dataRows = rows.slice(1)
+    
+    const transformedData = dataRows.map((row, index) => {
+      const item = {
+        id: `item-${index + 2}`, // +2 because we skip header and start from row 2
+        rowIndex: index + 2 // Track the actual row number in the sheet
+      }
+      
+      headers.forEach((header, colIndex) => {
+        const fieldName = mapHeaderToFieldName(header)
+        item[fieldName] = row[colIndex] || ''
+      })
+      
+      return item
+    }).filter(item => item.propertyName && item.propertyName.trim() !== '')
+    
+    return NextResponse.json({ data: transformedData })
+    
   } catch (error) {
-    console.error('Error fetching sheet data:', error);
-    return NextResponse.json({ 
-      error: 'Failed to fetch sheet data', 
-      message: error.message 
-    }, { status: 500 })
+    console.error('Error fetching sheet data:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch sheet data', message: error.message },
+      { status: 500 }
+    )
   }
 }
 
 export async function POST(request) {
-  const session = await getServerSession()
+  const session = await auth()
+  
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -86,53 +68,82 @@ export async function POST(request) {
   try {
     const { rowIndex, columnLetter, newValue } = await request.json()
     
-    const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL;
-    const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
+    if (!rowIndex || !columnLetter || newValue === undefined) {
+      return NextResponse.json(
+        { error: 'Missing required parameters: rowIndex, columnLetter, newValue' },
+        { status: 400 }
+      )
+    }
 
-    const range = `${columnLetter}${rowIndex}`;
+    const range = `${columnLetter}${rowIndex}`
     
-    const payload = {
-      sheetId: SHEET_ID,
-      range: range,
-      value: newValue
-    };
+    console.log(`Updating ${range} with value: ${newValue}`)
     
     const response = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
       headers: {
-        'Content-Type': 'text/plain',
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload)
-    });
+      body: JSON.stringify({
+        sheetId: SHEET_ID,
+        range: range,
+        value: newValue
+      })
+    })
     
-    if (response.ok) {
-      const result = await response.text();
-      
-      try {
-        const jsonResult = JSON.parse(result);
-        if (jsonResult.success) {
-          return NextResponse.json({ 
-            success: true, 
-            message: `Cell ${range} updated successfully` 
-          })
-        } else {
-          throw new Error(jsonResult.error || 'Update failed');
-        }
-      } catch (parseError) {
-        return NextResponse.json({ 
-          success: true, 
-          message: `Cell ${range} updated` 
-        })
-      }
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    
+    const result = await response.json()
+    
+    if (result.success) {
+      return NextResponse.json({ 
+        success: true, 
+        message: `Cell ${range} updated successfully!` 
+      })
     } else {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(result.error || 'Update failed')
     }
     
   } catch (error) {
-    console.error('Error updating sheet:', error);
-    return NextResponse.json({ 
-      error: 'Failed to update cell', 
-      message: error.message 
-    }, { status: 500 })
+    console.error('Error updating sheet:', error)
+    return NextResponse.json(
+      { error: 'Failed to update sheet', message: error.message },
+      { status: 500 }
+    )
   }
+}
+
+// Helper function to map headers to field names
+function mapHeaderToFieldName(header) {
+  const headerMap = {
+    'Property Name': 'propertyName',
+    'Category': 'category',
+    'Floor': 'floor',
+    'Location': 'location',
+    'Item Description': 'itemDescription',
+    'Size/Type': 'sizeType',
+    'Hardware Type': 'hardwareType',
+    'Quantity': 'quantity',
+    'Link': 'link',
+    'Vendor': 'vendor',
+    'Allowance per item (With Tax)': 'allowancePerItem',
+    'Total Budget with Tax': 'totalBudgetWithTax',
+    'Notes': 'notes',
+    'Quality to be ordered': 'qualityToBeOrdered',
+    'Price per item (With Tax)': 'pricePerItem',
+    'Total Price with Tax': 'totalPriceWithTax',
+    'Difference from allowance': 'differenceFromAllowance',
+    'Shriji Share': 'shrijiShare',
+    'Client Share': 'clientShare',
+    'Shriji Comments': 'shrijiComments',
+    'Ordered?': 'ordered',
+    'Order ID': 'orderId',
+    'Order Date': 'orderDate',
+    'Priority': 'priority',
+    'Approval': 'approval'
+  }
+  
+  return headerMap[header] || header.toLowerCase().replace(/[^a-z0-9]/g, '')
 }
