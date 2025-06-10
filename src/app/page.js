@@ -165,11 +165,18 @@ const ConstructionTracker = () => {
   const authLoading = status === 'loading';
   const [authMode, setAuthMode] = useState('login');
   const [showProfile, setShowProfile] = useState(false);
+<<<<<<< HEAD
   const [loginLoading, setLoginLoading] = useState(false);
   const [showLoginSuccess, setShowLoginSuccess] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [showMatchPopup, setShowMatchPopup] = useState(false);
+=======
+  const [authLoading, setAuthLoading] = useState(false);
+  const [showLoginSuccess, setShowLoginSuccess] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [showToast, setShowToast] = useState(false);
+>>>>>>> 24d3d6525f5b1cb72beeca465830839ebf27a313
   // Navigation states
 const [isNavOpen, setIsNavOpen] = useState(false);
 const [currentPage, setCurrentPage] = useState('detailed-breakdown');
@@ -191,12 +198,22 @@ const [currentPage, setCurrentPage] = useState('detailed-breakdown');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentSearchInput, setCurrentSearchInput] = useState(''); // Track search input separately
 
+<<<<<<< HEAD
 // Google Sheets configuration
 const SHEET_ID = process.env.GOOGLE_SHEETS_ID;
 const SHEET_NAME = 'Detailed breakdown';
 const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL;
 const SHEET_RANGE = 'A1:Z5000';
 const API_KEY = process.env.NEXT_PUBLIC_GOOGLE_SHEETS_API_KEY;
+=======
+  // Google Sheets configuration
+  const SHEET_ID = '1I0R7NgeWBI90bk30_BKsQ5Lze64fWBD4plrgNyZi6Po';
+  const SHEET_NAME = 'Detailed breakdown';
+  // Add this line after your existing constants (SHEET_ID, API_KEY, etc.)
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz1v5--rOaPknTcNbKlLXY6e1O3bwXEtPYgj6N_vcplD_hbIZzehLZfD-eU54XJzSndOg/exec';
+  const SHEET_RANGE = 'A1:Z5000';
+  const API_KEY = 'AIzaSyDjGF92yTLtzhoaUHC_TwB69YT3QqtgJcA';
+>>>>>>> 24d3d6525f5b1cb72beeca465830839ebf27a313
 
   // Navigation menu items
 const navigationItems = [
@@ -302,6 +319,7 @@ const handlePageChange = (pageId) => {
 
 
   const fetchSheetData = async () => {
+<<<<<<< HEAD
   try {
     setLoading(true);
     setError(null);
@@ -370,6 +388,115 @@ const handlePageChange = (pageId) => {
     setLoading(false);
   }
 };
+=======
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Use Google Sheets API instead of the old gviz method for better reliability
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!${SHEET_RANGE}?key=${API_KEY}`;
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (!data.values || data.values.length === 0) {
+        throw new Error('No data found in sheet');
+      }
+      
+      // Skip header row and transform data
+      const transformedData = data.values.slice(1).map((row, index) => {
+        return {
+          id: index + 1,
+          rowIndex: index + 2, // +2 because sheet is 1-indexed and we skip header
+          propertyName: row[0] || '',
+          category: row[1] || '',
+          floor: row[3] || '',
+          location: row[4] || '',
+          itemDescription: row[5] || '',
+          sizeType: row[6] || '',
+          hardwareType: row[7] || '',
+          quantity: row[8] || 0,
+          link: row[9] || '',
+          vendor: row[10] || '',
+          allowancePerItem: row[11] || '',
+          totalBudgetWithTax: row[12] || '',
+          notes: row[13] || '',
+          qualityToBeOrdered: row[14] || 0,
+          pricePerItem: row[15] || '',
+          totalPriceWithTax: row[16] || '',
+          differenceFromAllowance: row[17] || '',
+          shrijiShare: row[18] || '',
+          clientShare: row[19] || '',
+          shrijiComments: row[20] || '',
+          ordered: row[21] || '',
+          orderId: row[22] || '',
+          orderDate: row[23] || '',
+          priority: row[24] || '',
+          approval: row[25] || ''
+        };
+      }).filter(item => item.propertyName); // Only include rows with property names
+      
+      // Check if totals match before updating
+const newTotalCost = transformedData.reduce((total, item) => {
+  if (item.totalPriceWithTax) {
+    const numericValue = parseFloat(item.totalPriceWithTax.toString().replace(/[^0-9.-]/g, ''));
+    return total + (isNaN(numericValue) ? 0 : numericValue);
+  }
+  return total;
+}, 0);
+
+const newTotalAllowance = transformedData.reduce((total, item) => {
+  if (item.totalBudgetWithTax) {
+    const numericValue = parseFloat(item.totalBudgetWithTax.toString().replace(/[^0-9.-]/g, ''));
+    return total + (isNaN(numericValue) ? 0 : numericValue);
+  }
+  return total;
+}, 0);
+
+// Get current totals for comparison
+const currentTotalCost = properties.reduce((total, item) => {
+  if (item.totalPriceWithTax) {
+    const numericValue = parseFloat(item.totalPriceWithTax.toString().replace(/[^0-9.-]/g, ''));
+    return total + (isNaN(numericValue) ? 0 : numericValue);
+  }
+  return total;
+}, 0);
+
+const currentTotalAllowance = properties.reduce((total, item) => {
+  if (item.totalBudgetWithTax) {
+    const numericValue = parseFloat(item.totalBudgetWithTax.toString().replace(/[^0-9.-]/g, ''));
+    return total + (isNaN(numericValue) ? 0 : numericValue);
+  }
+  return total;
+}, 0);
+
+// Check if values match (only if we have existing data)
+if (properties.length > 0 && newTotalCost === currentTotalCost && newTotalAllowance === currentTotalAllowance) {
+  // Show match popup
+  setShowMatchPopup(true);
+  setTimeout(() => setShowMatchPopup(false), 2000); // Hide after 2 seconds
+}
+
+// Update properties data
+setProperties(transformedData);
+
+// Preserve user's current filter state by re-applying filters to new data
+applyFiltersToData(transformedData);
+
+setLastUpdated(new Date());
+setLoading(false);
+    } catch (err) {
+      console.error('Error fetching sheet data:', err);
+      setError(`Failed to load data from Google Sheets: ${err.message}`);
+      setLoading(false);
+    }
+  };
+>>>>>>> 24d3d6525f5b1cb72beeca465830839ebf27a313
 
   // Helper function to apply current filters to new data
   const applyFiltersToData = (newData) => {
@@ -449,6 +576,7 @@ const handlePageChange = (pageId) => {
   // Function to update a single cell in Google Sheets
   const updateSheetCell = async (rowIndex, columnLetter, newValue) => {
   try {
+<<<<<<< HEAD
     const response = await fetch('/api/sheets', {
       method: 'POST',
       headers: {
@@ -470,6 +598,53 @@ const handlePageChange = (pageId) => {
     showToastMessage(`✅ ${result.message}`, 2000);
     return true;
     
+=======
+    const range = `${columnLetter}${rowIndex}`;
+    
+    console.log(`Updating ${range} with value: ${newValue}`);
+    
+    // Create the payload
+    const payload = {
+      sheetId: SHEET_ID,
+      range: range,
+      value: newValue
+    };
+    
+    console.log('Sending payload:', payload);
+    
+    // Try with regular fetch first
+    const response = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain',
+      },
+      body: JSON.stringify(payload)
+    });
+    
+    console.log('Response status:', response.status);
+    
+    if (response.ok) {
+      const result = await response.text();
+      console.log('Raw response:', result);
+      
+      try {
+        const jsonResult = JSON.parse(result);
+        if (jsonResult.success) {
+          showToastMessage(`✅ Cell ${range} updated successfully!`, 2000);
+          return true;
+        } else {
+          throw new Error(jsonResult.error || 'Update failed');
+        }
+      } catch (parseError) {
+        console.log('Could not parse JSON, but request went through:', result);
+        showToastMessage(`✅ Cell ${range} updated!`, 2000);
+        return true;
+      }
+    } else {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+>>>>>>> 24d3d6525f5b1cb72beeca465830839ebf27a313
   } catch (error) {
     console.error('Error updating sheet:', error);
     showToastMessage(`❌ Failed to update cell: ${error.message}`, 4000);
@@ -1177,6 +1352,7 @@ const ProjectSummaryPage = () => {
 };
 
   return (
+<<<<<<< HEAD
  <>
    {showLoginSuccess && <LoginSuccessAnimation user={currentUser} />}
    
@@ -1197,6 +1373,8 @@ const ProjectSummaryPage = () => {
    )}
 
 {isAuthenticated && !showLoginSuccess && (
+=======
+>>>>>>> 24d3d6525f5b1cb72beeca465830839ebf27a313
   <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
     <style jsx>{`
       @keyframes slideInFromLeft {
@@ -1309,6 +1487,10 @@ const ProjectSummaryPage = () => {
   {showProfile && (
     <ProfileDropdown
       user={currentUser}
+<<<<<<< HEAD
+=======
+      onUpdate={updateProfile}
+>>>>>>> 24d3d6525f5b1cb72beeca465830839ebf27a313
       onLogout={handleLogout}
       loading={authLoading}
     />
@@ -1824,8 +2006,11 @@ const ProjectSummaryPage = () => {
       ></div>
     )}
   </div>
+<<<<<<< HEAD
   )}
   </>
+=======
+>>>>>>> 24d3d6525f5b1cb72beeca465830839ebf27a313
 );
 };
 
