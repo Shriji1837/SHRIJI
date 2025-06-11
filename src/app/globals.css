@@ -5,6 +5,37 @@
   --foreground: #171717;
 }
 
+.table-scroll {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 24rem;
+  width: 100%;
+  max-width: 2168px;
+}
+
+.table-scroll table {
+  width: 2000px;
+  min-width: 2000px;
+}
+
+.table-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.table-scroll::-webkit-scrollbar-track {
+  background: #374151;
+}
+
+.table-scroll::-webkit-scrollbar-thumb {
+  background: #6b7280;
+  border-radius: 4px;
+}
+
+.table-scroll::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

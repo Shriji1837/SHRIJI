@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
-import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter } from 'lucide-react';
+import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter, User } from 'lucide-react';
 
 // Properly working useCountAnimation hook without stale closures
 // Properly working useCountAnimation hook without stale closures
@@ -78,8 +78,7 @@ const ProjectSummary = ({
   // Local filter states for summary view
   const [summaryFilters, setSummaryFilters] = useState({
     category: '',
-    ordered: 'all',
-    priority: 'all'
+    ordered: 'all'
   });
   const [summarySearchTerm, setSummarySearchTerm] = useState('');
   const [showMatchPopup, setShowMatchPopup] = useState(false);
@@ -223,13 +222,6 @@ const ProjectSummary = ({
       );
     }
 
-    // Priority filter
-    if (summaryFilters.priority !== 'all') {
-      filtered = filtered.filter(item => 
-        item.priority && item.priority.toLowerCase() === summaryFilters.priority.toLowerCase()
-      );
-    }
-
     setFilteredProperties(filtered);
   };
 
@@ -237,8 +229,7 @@ const ProjectSummary = ({
   const clearSummaryFilters = () => {
     setSummaryFilters({
       category: '',
-      ordered: 'all',
-      priority: 'all'
+      ordered: 'all'
     });
     setSummarySearchTerm('');
     setFilteredProperties(properties);
@@ -354,17 +345,11 @@ const ProjectSummary = ({
 
   // Get unique values for filters
   const uniqueCategories = [...new Set(properties.map(item => item.category))].filter(Boolean);
-  const uniquePriorities = [...new Set(properties.map(item => item.priority))].filter(Boolean);
 
   // Prepare dropdown options
   const categoryOptions = [
     { value: '', label: 'All Categories' },
     ...uniqueCategories.map(cat => ({ value: cat, label: cat }))
-  ];
-
-  const priorityOptions = [
-    { value: 'all', label: 'All Priorities' },
-    ...uniquePriorities.map(priority => ({ value: priority, label: priority }))
   ];
 
   const orderStatusOptions = [
@@ -377,9 +362,6 @@ const ProjectSummary = ({
   const totalItems = filteredProperties.length;
   const orderedItems = filteredProperties.filter(p => 
     p.ordered && (p.ordered.toLowerCase() === 'y' || p.ordered.toLowerCase() === 'yes')
-  ).length;
-  const highPriorityItems = filteredProperties.filter(p => 
-    p.priority && p.priority.toLowerCase() === 'high'
   ).length;
   const withNotesItems = filteredProperties.filter(p => p.notes && p.notes !== "").length;
 
@@ -423,6 +405,42 @@ const ProjectSummary = ({
     maximumFractionDigits: 2
   }).format(animatedTotalCost);
 
+  const formatDate = (dateValue) => {
+    if (!dateValue || dateValue === "") return "";
+    
+    try {
+      let date;
+      
+      if (typeof dateValue === 'string' && dateValue.startsWith('Date(')) {
+        const match = dateValue.match(/Date\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)/);
+        if (match) {
+          const [, year, month, day, hour, minute, second] = match;
+          date = new Date(parseInt(year), parseInt(month), parseInt(day), parseInt(hour), parseInt(minute), parseInt(second));
+        }
+      } else if (typeof dateValue === 'string') {
+        if (dateValue.includes('/') && dateValue.includes(':')) {
+          const [datePart] = dateValue.split(' ');
+          return datePart;
+        }
+        date = new Date(dateValue);
+      } else if (typeof dateValue === 'number') {
+        const excelEpoch = new Date(1900, 0, 1);
+        date = new Date(excelEpoch.getTime() + (dateValue - 1) * 24 * 60 * 60 * 1000);
+      } else {
+        date = new Date(dateValue);
+      }
+      
+      if (!date || isNaN(date.getTime())) {
+        return dateValue;
+      }
+      
+      return date.toLocaleDateString('en-US');
+    } catch (error) {
+      console.log('Date parsing error:', dateValue, error);
+      return dateValue;
+    }
+  };
+
   const formattedTotalAllowance = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -457,17 +475,6 @@ const ProjectSummary = ({
                 <div>
                   <p className="text-gray-400 text-sm">Items Ordered</p>
                   <p className="text-white text-xl font-semibold">{orderedItems}</p>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center">
-                  <AlertCircle className="w-5 h-5 text-red-400" />
-                </div>
-                <div>
-                  <p className="text-gray-400 text-sm">High Priority</p>
-                  <p className="text-white text-xl font-semibold">{highPriorityItems}</p>
                 </div>
               </div>
             </div>
@@ -536,16 +543,6 @@ const ProjectSummary = ({
                 placeholder="All Items"
                 zIndex={40}
               />
-
-              {/* Priority Dropdown */}
-              <CustomDropdown
-                label="Priority"
-                value={summaryFilters.priority}
-                options={priorityOptions}
-                onChange={(value) => handleSummaryFilterChange('priority', value)}
-                placeholder="All Priorities"
-                zIndex={30}
-              />
             </div>
 
             {/* Apply Button */}
@@ -590,7 +587,8 @@ const ProjectSummary = ({
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Total Price</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Notes</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Ordered</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Priority</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Vendor</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Order Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/50">
@@ -697,21 +695,24 @@ const ProjectSummary = ({
                       </EditableCell>
                       <EditableCell 
                         item={item} 
-                        fieldName="priority" 
-                        value={item.priority}
+                        fieldName="vendor" 
+                        value={item.vendor}
                         className="px-4 py-4 text-sm text-gray-300"
                       >
-                        {item.priority && (
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            item.priority.toLowerCase() === 'high' 
-                              ? 'bg-red-500/20 text-red-300' 
-                              : item.priority.toLowerCase() === 'medium'
-                              ? 'bg-yellow-500/20 text-yellow-300'
-                              : 'bg-green-500/20 text-green-300'
-                          }`}>
-                            {item.priority}
-                          </span>
+                        {item.vendor && (
+                          <div className="flex items-center space-x-1">
+                            <User className="w-4 h-4 text-purple-400" />
+                            <span>{item.vendor}</span>
+                          </div>
                         )}
+                      </EditableCell>
+                      <EditableCell 
+                        item={item} 
+                        fieldName="orderDate" 
+                        value={item.orderDate}
+                        className="px-4 py-4 text-sm text-gray-300"
+                      >
+                        {formatDate(item.orderDate)}
                       </EditableCell>
                     </tr>
                   ))}

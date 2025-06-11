@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSession, signIn, signOut } from 'next-auth/react';
 import ReactDOM from 'react-dom';
 import ProjectSummary from './ProjectSummary';
-import { Search, Home, DollarSign, MapPin, Package, User, Calendar, CheckCircle, RefreshCw, Loader2, UserCircle, Settings, LogOut, Eye, EyeOff, UserPlus, Lock } from 'lucide-react';
+import { Search, Home, DollarSign, MapPin, Package, User, Calendar, CheckCircle, RefreshCw, Loader2, UserCircle, Settings, LogOut, Eye, EyeOff, UserPlus, Lock, Filter } from 'lucide-react';
 
 
 // Auth Form: standalone component so its state sticks
@@ -238,9 +238,7 @@ const handlePageChange = (pageId) => {
       'clientShare',
       'shrijiComments',
       'orderId',
-      'orderDate',
-      'approval',
-      'priority'
+      'approval'
     ];
   };
 
@@ -570,8 +568,6 @@ const updateSheetCellWithFallback = async (rowIndex, columnLetter, newValue) => 
       shrijiComments: 'U',
       ordered: 'V',
       orderId: 'W',
-      orderDate: 'X',
-      priority: 'Y',
       approval: 'Z'
     };
     return columnMap[fieldName];
@@ -1177,654 +1173,646 @@ const ProjectSummaryPage = () => {
 };
 
   return (
- <>
-   {showLoginSuccess && <LoginSuccessAnimation user={currentUser} />}
-   
-   {!isAuthenticated && !showLoginSuccess && (
-     <>
-       <AuthForm
-         mode={authMode}
-         onSubmit={handleAuth}
-         onModeChange={setAuthMode}
-         loading={loginLoading}
-       />
-       <ToastNotification 
-         message={toastMessage} 
-         show={showToast} 
-         onClose={() => setShowToast(false)} 
-       />
-     </>
-   )}
-
-{isAuthenticated && !showLoginSuccess && (
-  <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
-    <style jsx>{`
-      @keyframes slideInFromLeft {
-        from {
-          opacity: 0;
-          transform: translateX(-30px);
-        }
-        to {
-          opacity: 1;
-          transform: translateX(0);
-        }
-      }
-    `}</style>
+  <>
+    {showLoginSuccess && <LoginSuccessAnimation user={currentUser} />}
     
-    <ToastNotification 
-      message={toastMessage} 
-      show={showToast} 
-      onClose={() => setShowToast(false)} 
-    />
-    
-    {/* Navigation Sidebar */}
-    <NavigationSidebar />
-    
-    <div className="relative z-50 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
-      <div className="px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            {/* Hamburger Menu */}
-            <HamburgerMenu />
-            
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Home className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">Shriji Task Tracker</h1>
-                <p className="text-gray-400 text-sm">
-                  {navigationItems.find(item => item.id === currentPage)?.name || 'Construction Project Management'}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <button
-              onClick={handleManualRefresh}
-              disabled={loading}
-              className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded-lg transition-colors duration-200"
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              <span className="text-white text-sm">
-                {loading ? 'Updating...' : 'Refresh'}
-              </span>
-            </button>
-            <div className="bg-gray-700/50 px-4 py-2 rounded-lg border border-gray-600/50">
-              <span className="text-gray-300 text-sm">
-                {filteredProperties.length !== properties.length 
-                  ? `${filteredProperties.length} of ${properties.length} items` 
-                  : `Total Items: ${properties.length}`
-                }
-              </span>
-            </div>
-            {lastUpdated && (
-              <div className="text-gray-400 text-sm">
-                Last updated: {lastUpdated.toLocaleTimeString()}
-              </div>
-            )}
-            
-            
+    {!isAuthenticated && !showLoginSuccess && (
+      <>
+        <AuthForm
+          mode={authMode}
+          onSubmit={handleAuth}
+          onModeChange={setAuthMode}
+          loading={loginLoading}
+        />
+        <ToastNotification 
+          message={toastMessage} 
+          show={showToast} 
+          onClose={() => setShowToast(false)} 
+        />
+      </>
+    )}
 
-
-<div className="relative">
-  <button
-    onClick={() => setShowProfile(prev => !prev)}
-    className="flex items-center space-x-3 bg-gray-700/50 hover:bg-gray-600/50 px-4 py-2 rounded-xl border border-gray-600/50 transition-all duration-300 ease-in-out transform hover:scale-[1.02] focus:scale-[1.02] group"
-  >
-    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
-      <UserCircle className="w-6 h-6 text-white" />
-    </div>
-    <div className="text-left">
-      <div className="relative">
-        {/* Glowing text effect */}
-        <div className="absolute inset-0 text-lg font-bold text-white/20 blur-sm">
-          {currentUser.username || currentUser.email?.split('@')[0] || 'User'}
-        </div>
-        {/* Main text with gradient */}
-        <div className="relative text-lg font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent group-hover:from-blue-200 group-hover:via-white group-hover:to-blue-200 transition-all duration-300">
-          {currentUser.username || currentUser.email?.split('@')[0] || 'User'}
-        </div>
-      </div>
-      <div className="text-xs text-gray-400 font-medium tracking-wider">
-        Welcome back
-      </div>
-    </div>
-    <div className="w-4 h-4 text-gray-400 group-hover:text-blue-300 transition-all duration-300">
-      <svg 
-        className={`w-4 h-4 transition-transform duration-300 ${showProfile ? 'rotate-180' : 'rotate-0'}`}
-        fill="none" 
-        stroke="currentColor" 
-        viewBox="0 0 24 24"
-      >
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
-    </div>
-  </button>
-  
-  {showProfile && (
-    <ProfileDropdown
-      user={currentUser}
-      onLogout={handleLogout}
-      loading={authLoading}
-    />
-  )}
-</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    {/* Main Content */}
-    {currentPage === 'detailed-breakdown' ? (
-      <div className="p-6">
-        <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white">Filters & Search</h3>
-            {activeFiltersCount > 0 && (
-              <button
-                onClick={clearAllFilters}
-                className="text-sm text-blue-400 hover:text-blue-300 transition-colors duration-200"
-              >
-                Clear All ({activeFiltersCount})
-              </button>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="lg:col-span-2">
-              <label className="block text-sm font-medium text-gray-300 mb-2">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search all fields..."
-                  value={currentSearchInput}
-                  onChange={(e) => setCurrentSearchInput(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <CustomDropdown
-              label="Category"
-              value={filters.category}
-              options={categoryOptions}
-              onChange={(value) => handleFilterChange('category', value)}
-              placeholder="All Categories"
-              zIndex={50}
-            />
-
-            <CustomDropdown
-              label="Floor"
-              value={filters.floor}
-              options={floorOptions}
-              onChange={(value) => handleFilterChange('floor', value)}
-              placeholder="All Floors"
-              zIndex={40}
-            />
-
-            <CustomDropdown
-              label="Vendor"
-              value={filters.vendor}
-              options={vendorOptions}
-              onChange={(value) => handleFilterChange('vendor', value)}
-              placeholder="All Vendors"
-              zIndex={30}
-            />
-          </div>
-
-          <div className="flex flex-wrap gap-2 mt-4">
-            <button
-              onClick={() => handleFilterChange('budgetStatus', filters.budgetStatus === 'with' ? 'all' : 'with')}
-              className={`px-3 py-1 rounded-full text-sm transition-colors duration-200 ${
-                filters.budgetStatus === 'with' 
-                  ? 'bg-green-500/20 text-green-300 border border-green-500/50' 
-                  : 'bg-gray-700/50 text-gray-300 border border-gray-600/50 hover:bg-gray-600/50'
-              }`}
-            >
-              With Budget
-            </button>
-            <button
-              onClick={() => handleFilterChange('budgetStatus', filters.budgetStatus === 'without' ? 'all' : 'without')}
-              className={`px-3 py-1 rounded-full text-sm transition-colors duration-200 ${
-                filters.budgetStatus === 'without' 
-                  ? 'bg-red-500/20 text-red-300 border border-red-500/50' 
-                  : 'bg-gray-700/50 text-gray-300 border border-gray-600/50 hover:bg-gray-600/50'
-              }`}
-            >
-              Without Budget
-            </button>
-          </div>
-
-          <div className="flex items-center justify-center mt-6">
-            <button
-              onClick={applyFilters}
-              className="group relative overflow-hidden bg-gradient-to-r from-blue-600 via-purple-600 to-blue-600 hover:from-blue-500 hover:via-purple-500 hover:to-blue-500 px-8 py-3 rounded-xl font-semibold text-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-blue-500/25"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
-              <div className="relative flex items-center space-x-3">
-                <Search className="w-5 h-5" />
-                <span className="text-lg">Apply Filters</span>
-                <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 overflow-hidden">
-          <div className="px-6 py-4 bg-gray-800/50 border-b border-gray-700/50">
+    {isAuthenticated && !showLoginSuccess && (
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
+        <style jsx>{`
+          @keyframes slideInFromLeft {
+            from {
+              opacity: 0;
+              transform: translateX(-30px);
+            }
+            to {
+              opacity: 1;
+              transform: translateX(0);
+            }
+          }
+        `}</style>
+        
+        <ToastNotification 
+          message={toastMessage} 
+          show={showToast} 
+          onClose={() => setShowToast(false)} 
+        />
+        
+        {/* Navigation Sidebar */}
+        <NavigationSidebar />
+        
+        <div className="relative z-50 bg-gray-800/50 backdrop-blur-sm border-b border-gray-700/50">
+          <div className="px-6 py-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-white">Project Details</h2>
-                <p className="text-gray-400 text-sm mt-1">Complete overview of all construction items and materials</p>
-              </div>
-              {error && (
-                <div className="bg-red-500/20 border border-red-500/50 text-red-300 px-3 py-2 rounded-lg text-sm">
-                  {error}
+              <div className="flex items-center space-x-4">
+                {/* Hamburger Menu */}
+                <HamburgerMenu />
+                
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                    <Home className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-bold text-white">Shriji Task Tracker</h1>
+                    <p className="text-gray-400 text-sm">
+                      {navigationItems.find(item => item.id === currentPage)?.name || 'Construction Project Management'}
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          <div className="overflow-x-auto max-h-96 overflow-y-auto">
-            <table className="w-full">
-              <thead className="bg-gray-800 sticky top-0 z-10 border-b border-gray-600/50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Property Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Category</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Floor</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Location</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Item Description</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Size/Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Hardware Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px]">Quantity</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Link</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Vendor</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Allowance/Item</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Total Allowance</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Notes</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Qty to Order</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Price/Item</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Total Price</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Difference</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Shriji Share</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Client Share</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Shriji Comments</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px]">Ordered?</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Order ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Order Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px]">Priority</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Approval</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-700/50">
-                {filteredProperties.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-gray-700/20 transition-colors duration-200">
-                    <EditableCell 
-                      item={item} 
-                      fieldName="propertyName" 
-                      value={item.propertyName}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="w-4 h-4 text-blue-400" />
-                        <span className="font-medium">{item.propertyName}</span>
+              </div>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={handleManualRefresh}
+                  disabled={loading}
+                  className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-4 py-2 rounded-lg transition-colors duration-200"
+                >
+                  {loading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-4 h-4" />
+                  )}
+                  <span className="text-white text-sm">
+                    {loading ? 'Updating...' : 'Refresh'}
+                  </span>
+                </button>
+                <div className="bg-gray-700/50 px-4 py-2 rounded-lg border border-gray-600/50">
+                  <span className="text-gray-300 text-sm">
+                    {filteredProperties.length !== properties.length 
+                      ? `${filteredProperties.length} of ${properties.length} items` 
+                      : `Total Items: ${properties.length}`
+                    }
+                  </span>
+                </div>
+                {lastUpdated && (
+                  <div className="text-gray-400 text-sm">
+                    Last updated: {lastUpdated.toLocaleTimeString()}
+                  </div>
+                )}
+                
+                <div className="relative">
+                  <button
+                    onClick={() => setShowProfile(prev => !prev)}
+                    className="flex items-center space-x-3 bg-gray-700/50 hover:bg-gray-600/50 px-4 py-2 rounded-xl border border-gray-600/50 transition-all duration-300 ease-in-out transform hover:scale-[1.02] focus:scale-[1.02] group"
+                  >
+                    <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                      <UserCircle className="w-6 h-6 text-white" />
+                    </div>
+                    <div className="text-left">
+                      <div className="relative">
+                        {/* Glowing text effect */}
+                        <div className="absolute inset-0 text-lg font-bold text-white/20 blur-sm">
+                          {currentUser.username || currentUser.email?.split('@')[0] || 'User'}
+                        </div>
+                        {/* Main text with gradient */}
+                        <div className="relative text-lg font-bold bg-gradient-to-r from-white via-blue-100 to-white bg-clip-text text-transparent group-hover:from-blue-200 group-hover:via-white group-hover:to-blue-200 transition-all duration-300">
+                          {currentUser.username || currentUser.email?.split('@')[0] || 'User'}
+                        </div>
                       </div>
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="category" 
-                      value={item.category}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <Package className="w-4 h-4 text-green-400" />
-                        <span>{item.category}</span>
+                      <div className="text-xs text-gray-400 font-medium tracking-wider">
+                        Welcome back
                       </div>
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="floor" 
-                      value={item.floor}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      <span className="bg-gray-700/50 px-2 py-1 rounded-md text-xs">
-                        {item.floor}
-                      </span>
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="location" 
-                      value={item.location}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.location}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="itemDescription" 
-                      value={item.itemDescription}
-                      className="px-4 py-4 text-sm text-gray-300 font-medium"
-                    >
-                      {item.itemDescription}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="sizeType" 
-                      value={item.sizeType}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.sizeType}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="hardwareType" 
-                      value={item.hardwareType}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.hardwareType}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="quantity" 
-                      value={item.quantity}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-md text-xs font-medium">
-                        {item.quantity}
-                      </span>
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="link" 
-                      value={item.link}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.link}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="vendor" 
-                      value={item.vendor}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.vendor && (
-                        <div className="flex items-center space-x-1">
-                          <User className="w-4 h-4 text-purple-400" />
-                          <span>{item.vendor}</span>
-                        </div>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="allowancePerItem" 
-                      value={item.allowancePerItem}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.allowancePerItem && (
-                        <div className="flex items-center space-x-1">
-                          <DollarSign className="w-4 h-4 text-yellow-400" />
-                          <span className="font-medium text-yellow-300">{formatCurrency(item.allowancePerItem)}</span>
-                        </div>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="totalBudgetWithTax" 
-                      value={item.totalBudgetWithTax}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.totalBudgetWithTax && (
-                        <div className="flex items-center space-x-1">
-                          <DollarSign className="w-4 h-4 text-green-400" />
-                          <span className="font-medium text-green-300">{formatCurrency(item.totalBudgetWithTax)}</span>
-                        </div>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="notes" 
-                      value={item.notes}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.notes && (
-                        <div className="max-w-xs">
-                          <p className="text-gray-400 text-xs bg-gray-700/30 px-2 py-1 rounded-md">
-                            {item.notes}
-                          </p>
-                        </div>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="qualityToBeOrdered" 
-                      value={item.qualityToBeOrdered}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      <div className="flex items-center space-x-1">
-                        <CheckCircle className="w-4 h-4 text-green-400" />
-                        <span>{item.qualityToBeOrdered}</span>
-                      </div>
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="pricePerItem" 
-                      value={item.pricePerItem}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.pricePerItem && (
-                        <div className="flex items-center space-x-1">
-                          <DollarSign className="w-4 h-4 text-blue-400" />
-                          <span className="font-medium text-blue-300">{formatCurrency(item.pricePerItem)}</span>
-                        </div>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="totalPriceWithTax" 
-                      value={item.totalPriceWithTax}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.totalPriceWithTax && (
-                        <div className="flex items-center space-x-1">
-                          <DollarSign className="w-4 h-4 text-blue-400" />
-                          <span className="font-medium text-blue-300">{formatCurrency(item.totalPriceWithTax)}</span>
-                        </div>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="differenceFromAllowance" 
-                      value={item.differenceFromAllowance}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.differenceFromAllowance && (
-                        <div className="flex items-center space-x-1">
-                          <DollarSign className="w-4 h-4 text-orange-400" />
-                          <span className="font-medium text-orange-300">{formatCurrency(item.differenceFromAllowance)}</span>
-                        </div>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="shrijiShare" 
-                      value={item.shrijiShare}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.shrijiShare && (
-                        <div className="flex items-center space-x-1">
-                          <DollarSign className="w-4 h-4 text-purple-400" />
-                          <span className="font-medium text-purple-300">{formatCurrency(item.shrijiShare)}</span>
-                        </div>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="clientShare" 
-                      value={item.clientShare}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.clientShare && (
-                        <div className="flex items-center space-x-1">
-                          <DollarSign className="w-4 h-4 text-cyan-400" />
-                          <span className="font-medium text-cyan-300">{formatCurrency(item.clientShare)}</span>
-                        </div>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="shrijiComments" 
-                      value={item.shrijiComments}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.shrijiComments && (
-                        <div className="max-w-xs">
-                          <p className="text-gray-400 text-xs bg-purple-700/20 px-2 py-1 rounded-md">
-                            {item.shrijiComments}
-                          </p>
-                        </div>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="ordered" 
-                      value={item.ordered}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.ordered && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          item.ordered.toLowerCase() === 'y' || item.ordered.toLowerCase() === 'yes' 
-                            ? 'bg-green-500/20 text-green-300' 
-                            : 'bg-red-500/20 text-red-300'
-                        }`}>
-                          {item.ordered}
-                        </span>
-                      )}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="orderId" 
-                      value={item.orderId}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.orderId}
-                    </EditableCell>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="orderDate" 
-                      value={item.orderDate}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {formatDate(item.orderDate)}
-                    </EditableCell>
-                    <td className="px-4 py-4 text-sm text-gray-300">
-                      {item.priority && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          item.priority.toLowerCase() === 'high' 
-                            ? 'bg-red-500/20 text-red-300' 
-                            : item.priority.toLowerCase() === 'medium'
-                            ? 'bg-yellow-500/20 text-yellow-300'
-                            : 'bg-green-500/20 text-green-300'
-                        }`}>
-                          {item.priority}
-                        </span>
-                      )}
-                    </td>
-                    <EditableCell 
-                      item={item} 
-                      fieldName="approval" 
-                      value={item.approval}
-                      className="px-4 py-4 text-sm text-gray-300"
-                    >
-                      {item.approval && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          item.approval.toLowerCase() === 'approved' 
-                            ? 'bg-green-500/20 text-green-300' 
-                            : item.approval.toLowerCase() === 'pending'
-                            ? 'bg-yellow-500/20 text-yellow-300'
-                            : 'bg-red-500/20 text-red-300'
-                        }`}>
-                          {item.approval}
-                        </span>
-                      )}
-                    </EditableCell>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                <Package className="w-5 h-5 text-blue-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Total Items</p>
-                <p className="text-white text-xl font-semibold">{filteredProperties.length}</p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-green-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">Items with Budget</p>
-                <p className="text-white text-xl font-semibold">
-                  {filteredProperties.filter(p => p.totalBudgetWithTax && p.totalBudgetWithTax !== "").length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                <User className="w-5 h-5 text-purple-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">With Vendors</p>
-                <p className="text-white text-xl font-semibold">
-                  {filteredProperties.filter(p => p.vendor && p.vendor !== "").length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-orange-400" />
-              </div>
-              <div>
-                <p className="text-gray-400 text-sm">With Notes</p>
-                <p className="text-white text-xl font-semibold">
-                  {filteredProperties.filter(p => p.notes && p.notes !== "").length}
-                </p>
+                    </div>
+                    <div className="w-4 h-4 text-gray-400 group-hover:text-blue-300 transition-all duration-300">
+                      <svg 
+                        className={`w-4 h-4 transition-transform duration-300 ${showProfile ? 'rotate-180' : 'rotate-0'}`}
+                        fill="none" 
+                        stroke="currentColor" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </div>
+                  </button>
+                  
+                  {showProfile && (
+                    <ProfileDropdown
+                      user={currentUser}
+                      onLogout={handleLogout}
+                      loading={authLoading}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
         </div>
+
+        {/* Main Content */}
+        {currentPage === 'detailed-breakdown' ? (
+          <div className="p-6">
+            {/* Main Layout: Sidebar + Content */}
+            <div className="flex gap-6">
+              {/* Left Sidebar - Filters */}
+              <div className="w-80 flex-shrink-0">
+                {/* Summary Stats Cards */}
+                <div className="grid grid-cols-1 gap-3 mb-6">
+                  <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                        <Package className="w-5 h-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-sm">Total Items</p>
+                        <p className="text-white text-xl font-semibold">{filteredProperties.length}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                        <DollarSign className="w-5 h-5 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-sm">Items with Budget</p>
+                        <p className="text-white text-xl font-semibold">
+                          {filteredProperties.filter(p => p.totalBudgetWithTax && p.totalBudgetWithTax !== "").length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center">
+                        <User className="w-5 h-5 text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-sm">With Vendors</p>
+                        <p className="text-white text-xl font-semibold">
+                          {filteredProperties.filter(p => p.vendor && p.vendor !== "").length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                        <Calendar className="w-5 h-5 text-orange-400" />
+                      </div>
+                      <div>
+                        <p className="text-gray-400 text-sm">With Notes</p>
+                        <p className="text-white text-xl font-semibold">
+                          {filteredProperties.filter(p => p.notes && p.notes !== "").length}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Filters Section */}
+                <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
+                      <Filter className="w-5 h-5" />
+                      <span>Filters</span>
+                    </h3>
+                    {activeFiltersCount > 0 && (
+                      <button
+                        onClick={clearAllFilters}
+                        className="text-xs text-blue-400 hover:text-blue-300 transition-colors duration-200 bg-blue-500/10 hover:bg-blue-500/20 px-2 py-1 rounded-md"
+                      >
+                        Clear ({activeFiltersCount})
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-4">
+                    {/* Search */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-300 mb-2">Search</label>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Search all fields..."
+                          value={currentSearchInput}
+                          onChange={(e) => setCurrentSearchInput(e.target.value)}
+                          className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 ease-in-out transform hover:scale-[1.02] focus:scale-[1.02]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Move your existing CustomDropdown components here */}
+                    <CustomDropdown
+                      label="Category"
+                      value={filters.category}
+                      options={categoryOptions}
+                      onChange={(value) => handleFilterChange('category', value)}
+                      placeholder="All Categories"
+                      zIndex={50}
+                    />
+
+                    <CustomDropdown
+                      label="Floor"
+                      value={filters.floor}
+                      options={floorOptions}
+                      onChange={(value) => handleFilterChange('floor', value)}
+                      placeholder="All Floors"
+                      zIndex={40}
+                    />
+
+                    <CustomDropdown
+                      label="Vendor"
+                      value={filters.vendor}
+                      options={vendorOptions}
+                      onChange={(value) => handleFilterChange('vendor', value)}
+                      placeholder="All Vendors"
+                      zIndex={30}
+                    />
+                  </div>
+
+                  {/* Filter buttons */}
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    <button
+                      onClick={() => handleFilterChange('budgetStatus', filters.budgetStatus === 'with' ? 'all' : 'with')}
+                      className={`px-3 py-1 rounded-full text-sm transition-colors duration-200 ${
+                        filters.budgetStatus === 'with' 
+                          ? 'bg-green-500/20 text-green-300 border border-green-500/50' 
+                          : 'bg-gray-700/50 text-gray-300 border border-gray-600/50 hover:bg-gray-600/50'
+                      }`}
+                    >
+                      With Budget
+                    </button>
+                    <button
+                      onClick={() => handleFilterChange('budgetStatus', filters.budgetStatus === 'without' ? 'all' : 'without')}
+                      className={`px-3 py-1 rounded-full text-sm transition-colors duration-200 ${
+                        filters.budgetStatus === 'without' 
+                          ? 'bg-red-500/20 text-red-300 border border-red-500/50' 
+                          : 'bg-gray-700/50 text-gray-300 border border-gray-600/50 hover:bg-gray-600/50'
+                      }`}
+                    >
+                      Without Budget
+                    </button>
+                  </div>
+
+                  {/* Apply Button */}
+                  <div className="mt-6">
+                    <button
+                      onClick={applyFilters}
+                      className="group relative overflow-hidden bg-gradient-to-r from-purple-600 via-blue-600 to-purple-600 hover:from-purple-500 hover:via-blue-500 hover:to-purple-500 px-6 py-3 rounded-xl font-semibold text-white transition-all duration-300 transform hover:scale-105 hover:shadow-2xl hover:shadow-purple-500/25 w-full"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
+                      <div className="relative flex items-center justify-center space-x-2">
+                        <Search className="w-4 h-4" />
+                        <span>Apply Filters</span>
+                        <div className="w-2 h-2 bg-white/60 rounded-full animate-pulse"></div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Content Area - Table */}
+              <div className="flex-1">
+                <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 overflow-hidden">
+                  <div className="px-6 py-4 bg-gray-800/50 border-b border-gray-700/50">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-xl font-semibold text-white">Project Details</h2>
+                        <p className="text-gray-400 text-sm mt-1">Complete overview of all construction items and materials</p>
+                      </div>
+                      {error && (
+                        <div className="bg-red-500/20 border border-red-500/50 text-red-300 px-3 py-2 rounded-lg text-sm">
+                          {error}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="table-scroll">
+                    <table className="w-full">
+                      <thead className="bg-gray-800 sticky top-0 z-10 border-b border-gray-600/50">
+                        <tr>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Property Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Category</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Floor</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Location</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Item Description</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Size/Type</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Hardware Type</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px]">Quantity</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Link</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Vendor</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Allowance/Item</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Total Allowance</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Notes</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Qty to Order</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Price/Item</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Total Price</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Difference</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Shriji Share</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Client Share</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Shriji Comments</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px]">Ordered?</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Order ID</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Approval</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-700/50">
+                        {filteredProperties.map((item, index) => (
+                          <tr key={item.id} className="hover:bg-gray-700/20 transition-colors duration-200">
+                            <EditableCell 
+                              item={item} 
+                              fieldName="propertyName" 
+                              value={item.propertyName}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <MapPin className="w-4 h-4 text-blue-400" />
+                                <span className="font-medium">{item.propertyName}</span>
+                              </div>
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="category" 
+                              value={item.category}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <Package className="w-4 h-4 text-green-400" />
+                                <span>{item.category}</span>
+                              </div>
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="floor" 
+                              value={item.floor}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              <span className="bg-gray-700/50 px-2 py-1 rounded-md text-xs">
+                                {item.floor}
+                              </span>
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="location" 
+                              value={item.location}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.location}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="itemDescription" 
+                              value={item.itemDescription}
+                              className="px-4 py-4 text-sm text-gray-300 font-medium"
+                            >
+                              {item.itemDescription}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="sizeType" 
+                              value={item.sizeType}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.sizeType}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="hardwareType" 
+                              value={item.hardwareType}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.hardwareType}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="quantity" 
+                              value={item.quantity}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-md text-xs font-medium">
+                                {item.quantity}
+                              </span>
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="link" 
+                              value={item.link}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.link}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="vendor" 
+                              value={item.vendor}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.vendor && (
+                                <div className="flex items-center space-x-1">
+                                  <User className="w-4 h-4 text-purple-400" />
+                                  <span>{item.vendor}</span>
+                                </div>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="allowancePerItem" 
+                              value={item.allowancePerItem}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.allowancePerItem && (
+                                <div className="flex items-center space-x-1">
+                                  <DollarSign className="w-4 h-4 text-yellow-400" />
+                                  <span className="font-medium text-yellow-300">{formatCurrency(item.allowancePerItem)}</span>
+                                </div>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="totalBudgetWithTax" 
+                              value={item.totalBudgetWithTax}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.totalBudgetWithTax && (
+                                <div className="flex items-center space-x-1">
+                                  <DollarSign className="w-4 h-4 text-green-400" />
+                                  <span className="font-medium text-green-300">{formatCurrency(item.totalBudgetWithTax)}</span>
+                                </div>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="notes" 
+                              value={item.notes}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.notes && (
+                                <div className="max-w-xs">
+                                  <p className="text-gray-400 text-xs bg-gray-700/30 px-2 py-1 rounded-md">
+                                    {item.notes}
+                                  </p>
+                                </div>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="qualityToBeOrdered" 
+                              value={item.qualityToBeOrdered}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              <div className="flex items-center space-x-1">
+                                <CheckCircle className="w-4 h-4 text-green-400" />
+                                <span>{item.qualityToBeOrdered}</span>
+                              </div>
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="pricePerItem" 
+                              value={item.pricePerItem}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.pricePerItem && (
+                                <div className="flex items-center space-x-1">
+                                  <DollarSign className="w-4 h-4 text-blue-400" />
+                                  <span className="font-medium text-blue-300">{formatCurrency(item.pricePerItem)}</span>
+                                </div>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="totalPriceWithTax" 
+                              value={item.totalPriceWithTax}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.totalPriceWithTax && (
+                                <div className="flex items-center space-x-1">
+                                  <DollarSign className="w-4 h-4 text-blue-400" />
+                                  <span className="font-medium text-blue-300">{formatCurrency(item.totalPriceWithTax)}</span>
+                                </div>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="differenceFromAllowance" 
+                              value={item.differenceFromAllowance}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.differenceFromAllowance && (
+                                <div className="flex items-center space-x-1">
+                                  <DollarSign className="w-4 h-4 text-orange-400" />
+                                  <span className="font-medium text-orange-300">{formatCurrency(item.differenceFromAllowance)}</span>
+                                </div>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="shrijiShare" 
+                              value={item.shrijiShare}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.shrijiShare && (
+                                <div className="flex items-center space-x-1">
+                                  <DollarSign className="w-4 h-4 text-purple-400" />
+                                  <span className="font-medium text-purple-300">{formatCurrency(item.shrijiShare)}</span>
+                                </div>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="clientShare" 
+                              value={item.clientShare}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.clientShare && (
+                                <div className="flex items-center space-x-1">
+                                  <DollarSign className="w-4 h-4 text-cyan-400" />
+                                  <span className="font-medium text-cyan-300">{formatCurrency(item.clientShare)}</span>
+                                </div>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="shrijiComments" 
+                              value={item.shrijiComments}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.shrijiComments && (
+                                <div className="max-w-xs">
+                                  <p className="text-gray-400 text-xs bg-purple-700/20 px-2 py-1 rounded-md">
+                                    {item.shrijiComments}
+                                  </p>
+                                </div>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="ordered" 
+                              value={item.ordered}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.ordered && (
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  item.ordered.toLowerCase() === 'y' || item.ordered.toLowerCase() === 'yes' 
+                                    ? 'bg-green-500/20 text-green-300' 
+                                    : 'bg-red-500/20 text-red-300'
+                                }`}>
+                                  {item.ordered}
+                                </span>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="orderId" 
+                              value={item.orderId}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.orderId}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="approval" 
+                              value={item.approval}
+                              className="px-4 py-4 text-sm text-gray-300"
+                            >
+                              {item.approval && (
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  item.approval.toLowerCase() === 'approved' 
+                                    ? 'bg-green-500/20 text-green-300' 
+                                    : item.approval.toLowerCase() === 'pending'
+                                    ? 'bg-yellow-500/20 text-yellow-300'
+                                    : 'bg-red-500/20 text-red-300'
+                                }`}>
+                                  {item.approval}
+                                </span>
+                              )}
+                            </EditableCell>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <ProjectSummaryPage />
+        )}
+
+        {showProfile && (
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={() => setShowProfile(false)}
+          ></div>
+        )}
       </div>
-    ) : (
-      <ProjectSummaryPage />
     )}
-
-    {showProfile && (
-      <div 
-        className="fixed inset-0 z-40" 
-        onClick={() => setShowProfile(false)}
-      ></div>
-    )}
-  </div>
-  )}
   </>
 );
 };
