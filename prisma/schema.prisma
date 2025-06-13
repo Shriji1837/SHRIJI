@@ -12,6 +12,52 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
+model ApprovalRequest {
+  id          String   @id @default(cuid())
+  userId      String
+  userName    String
+  status      String   @default("pending") // pending, approved, rejected
+  submittedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relation to user
+  user        User     @relation(fields: [userId], references: [id])
+  
+  // Related changes
+  changes     ApprovalChange[]
+  
+  @@map("approval_requests")
+}
+
+model ApprovalChange {
+  id        String   @id @default(cuid())
+  requestId String
+  itemId    String
+  fieldName String
+  oldValue  String?
+  newValue  String
+  createdAt DateTime @default(now())
+  
+  // Relation to approval request
+  request   ApprovalRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  @@map("approval_changes")
+}
+
+model InvestorNotification {
+  id        String   @id @default(cuid())
+  userId    String
+  message   String
+  type      String   // approved, rejected
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  
+  // Relation to user
+  user      User     @relation(fields: [userId], references: [id])
+  
+  @@map("investor_notifications")
+}
 
 model User {
   id        String   @id @default(cuid())
@@ -21,4 +67,8 @@ model User {
   role      String   @default("investor")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  // Relations
+  approvalRequests     ApprovalRequest[]
+  investorNotifications InvestorNotification[]
 }
