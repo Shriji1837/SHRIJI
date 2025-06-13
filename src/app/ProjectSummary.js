@@ -1,68 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Search, Package, MapPin, CheckCircle, AlertCircle, Clock, Filter, User } from 'lucide-react';
+import { ProfessionalCounter } from '../hooks/TotalCostBox'; 
+import { ProfessionalAllowanceCounter } from '../hooks/TotalAllowanceBox';
+import { ProfessionalQuantityCounter } from '../hooks/TotalQuantityBox';
 
-// Properly working useCountAnimation hook without stale closures
-// Properly working useCountAnimation hook without stale closures
-// Properly working useCountAnimation hook without stale closures
-// Updated useCountAnimation hook with requestAnimationFrame approach
-const useCountAnimation = (targetValue, duration = 2500) => {
-  const [currentValue, setCurrentValue] = useState(0);
-  const [isAnimating, setIsAnimating] = useState(false);
-  
-  // Track previous number to detect changes
-  const prevNumberRef = useRef(0);
 
-  useEffect(() => {
-    // Only animate if target value actually changed
-    if (targetValue === prevNumberRef.current) {
-      return;
-    }
 
-    // Handle zero case
-    if (targetValue === 0) {
-      setCurrentValue(0);
-      setIsAnimating(false);
-      prevNumberRef.current = 0;
-      return;
-    }
 
-    // Start animation
-    setIsAnimating(true);
-    const startValue = currentValue;
-    const startTime = performance.now();
-    
-    const animateNumber = (currentTime) => {
-      const elapsed = currentTime - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      
-      // Easing function for smooth animation
-      const easeOutQuad = (t) => t * (2 - t);
-      const easedProgress = easeOutQuad(progress);
-      
-      // Calculate current display number
-      const displayNumber = Math.round(startValue + (targetValue - startValue) * easedProgress);
-      setCurrentValue(displayNumber);
-      
-      // Continue animation or finish
-      if (progress < 1) {
-        requestAnimationFrame(animateNumber);
-      } else {
-        setCurrentValue(targetValue);
-        setIsAnimating(false);
-      }
-    };
-
-    // Start the animation
-    requestAnimationFrame(animateNumber);
-    
-    // Update previous number reference
-    prevNumberRef.current = targetValue;
-
-  }, [targetValue, duration, currentValue]);
-
-  return { currentValue, isAnimating };
-};
 
 const ProjectSummary = ({ 
   properties, 
@@ -75,21 +20,48 @@ const ProjectSummary = ({
   currentUser,
   formatLink 
 }) => {
+  // Add local state for filtered properties    
+
+
   // Local filter states for summary view
   const [summaryFilters, setSummaryFilters] = useState({
-    category: '',
-    ordered: 'all'
-  });
-  const [summarySearchTerm, setSummarySearchTerm] = useState('');
+  propertyName: '',
+  category: '',
+  ordered: 'all'
+});
+const [summarySearchTerm, setSummarySearchTerm] = useState('');
+const [currentSummarySearchInput, setCurrentSummarySearchInput] = useState('');
+
+// Add state persistence like page.js does
+const [persistedFilters, setPersistedFilters] = useState({
+  propertyName: '',
+  category: '',
+  ordered: 'all'
+});
+const [persistedSearchTerm, setPersistedSearchTerm] = useState('');
   const [showMatchPopup, setShowMatchPopup] = useState(false);
+  const [localFilteredProperties, setLocalFilteredProperties] = useState(properties);
+
+  // Add these debug useEffects right here
+useEffect(() => {
+  console.log('🔄 summaryFilters changed to:', JSON.stringify(summaryFilters, null, 2));
+}, [summaryFilters]);
+
+useEffect(() => {
+  console.log('🔄 Properties changed, length:', properties.length);
+  console.log('🔄 Current summaryFilters at properties change:', JSON.stringify(summaryFilters, null, 2));
+}, [properties]);
+
 
   // Custom dropdown component with Portal solution (same as detailed breakdown)
   const CustomDropdown = ({ label, value, options, onChange, placeholder, zIndex = 50 }) => {
+    console.log(`🔽 CustomDropdown "${label}" rendered with value:`, value);
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
     const buttonRef = useRef(null);
     const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
 
+    
     useEffect(() => {
       const handleClickOutside = (event) => {
         if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
@@ -194,51 +166,75 @@ const ProjectSummary = ({
   };
 
   // Apply summary-specific filters
-  const applySummaryFilters = () => {
-    let filtered = [...properties];
+const applySummaryFilters = () => {
 
-    // Search filter
-    if (summarySearchTerm) {
-      filtered = filtered.filter(item =>
-        Object.values(item).some(value =>
-          value?.toString().toLowerCase().includes(summarySearchTerm.toLowerCase())
-        )
-      );
-    }
+  setPersistedFilters(summaryFilters);
+  setPersistedSearchTerm(currentSummarySearchInput);
+  
+  let filtered = [...properties];
 
-    // Category filter
-    if (summaryFilters.category) {
-      filtered = filtered.filter(item => item.category === summaryFilters.category);
-    }
+  // Use the current search input state (like page.js does)
+  if (currentSummarySearchInput) {
+    filtered = filtered.filter(item =>
+      Object.values(item).some(value =>
+        value?.toString().toLowerCase().includes(currentSummarySearchInput.toLowerCase())
+      )
+    );
+  }
 
-    // Ordered status filter
-    if (summaryFilters.ordered === 'yes') {
-      filtered = filtered.filter(item => 
-        item.ordered && (item.ordered.toLowerCase() === 'y' || item.ordered.toLowerCase() === 'yes')
-      );
-    } else if (summaryFilters.ordered === 'no') {
-      filtered = filtered.filter(item => 
-        !item.ordered || (item.ordered.toLowerCase() === 'n' || item.ordered.toLowerCase() === 'no')
-      );
-    }
+  // Set the actual search term for tracking
+  setSummarySearchTerm(currentSummarySearchInput);
 
-    setFilteredProperties(filtered);
-  };
+  // Property filter
+  if (summaryFilters.propertyName) {
+    filtered = filtered.filter(item => item.propertyName === summaryFilters.propertyName);
+  }
+  // Category filter
+  if (summaryFilters.category) {
+    filtered = filtered.filter(item => item.category === summaryFilters.category);
+  }
+
+  // Ordered status filter
+  if (summaryFilters.ordered === 'yes') {
+    filtered = filtered.filter(item => 
+      item.ordered && (item.ordered.toLowerCase() === 'y' || item.ordered.toLowerCase() === 'yes')
+    );
+  } else if (summaryFilters.ordered === 'no') {
+    filtered = filtered.filter(item => 
+      !item.ordered || (item.ordered.toLowerCase() === 'n' || item.ordered.toLowerCase() === 'no')
+    );
+  }
+
+  setLocalFilteredProperties(filtered);
+  console.log('🎯 AFTER applySummaryFilters:');
+  console.log('summaryFilters:', JSON.stringify(summaryFilters, null, 2));
+  console.log('Filtered count:', filtered.length);
+  console.log('activeFiltersCount:', activeFiltersCount);
+};
 
   // Clear all summary filters
   const clearSummaryFilters = () => {
-    setSummaryFilters({
-      category: '',
-      ordered: 'all'
-    });
-    setSummarySearchTerm('');
-    setFilteredProperties(properties);
-  };
+  console.log('🧹 Clearing filters');
+  setSummaryFilters({
+    propertyName: '',
+    category: '',
+    ordered: 'all'
+  });
+  setSummarySearchTerm('');
+  setCurrentSummarySearchInput( '');
+  setLocalFilteredProperties(properties);
+  console.log('🧹 Filters cleared');
+};
 
-  // Handle filter changes
-  const handleSummaryFilterChange = (filterType, value) => {
-    setSummaryFilters(prev => ({ ...prev, [filterType]: value }));
-  };
+// Update the handleSummaryFilterChange function:
+const handleSummaryFilterChange = (filterType, value) => {
+  console.log('🔧 Filter changed:', filterType, '=', value);
+  setSummaryFilters(prev => {
+    const newFilters = { ...prev, [filterType]: value };
+    console.log('🔧 New filters state:', JSON.stringify(newFilters, null, 2));
+    return newFilters;
+  });
+};
 
   // EditableCell component for summary view
   const EditableCell = ({ item, fieldName, value, className, children }) => {
@@ -343,9 +339,14 @@ const ProjectSummary = ({
     );
   };
 
+  const uniquePropertyNames = [...new Set(properties.map(item => item.propertyName))].filter(Boolean);
   // Get unique values for filters
   const uniqueCategories = [...new Set(properties.map(item => item.category))].filter(Boolean);
 
+  const propertyNameOptions = [
+    { value: '', label: 'All Properties' },
+    ...uniquePropertyNames.map(prop => ({ value: prop, label: prop }))
+  ];
   // Prepare dropdown options
   const categoryOptions = [
     { value: '', label: 'All Categories' },
@@ -359,51 +360,68 @@ const ProjectSummary = ({
   ];
 
   // Calculate summary statistics
-  const totalItems = filteredProperties.length;
-  const orderedItems = filteredProperties.filter(p => 
+  const totalItems = localFilteredProperties.length;
+  const orderedItems = localFilteredProperties.filter(p => 
     p.ordered && (p.ordered.toLowerCase() === 'y' || p.ordered.toLowerCase() === 'yes')
   ).length;
-  const withNotesItems = filteredProperties.filter(p => p.notes && p.notes !== "").length;
+  const withNotesItems = localFilteredProperties.filter(p => p.notes && p.notes !== "").length;
 
   const activeFiltersCount = Object.values(summaryFilters).filter(value => value && value !== 'all').length + (summarySearchTerm ? 1 : 0);
-
+  // Add this debug line
+  console.log('🎯 activeFiltersCount calculation:', {
+    summaryFilters: JSON.stringify(summaryFilters),
+    summarySearchTerm,
+    activeFiltersCount
+  });
   // Calculate total cost from filtered results
   const calculateTotalCost = () => {
-    return filteredProperties.reduce((total, item) => {
-      if (item.totalPriceWithTax) {
-        // Remove any non-numeric characters and convert to number
-        const numericValue = parseFloat(item.totalPriceWithTax.toString().replace(/[^0-9.-]/g, ''));
-        return total + (isNaN(numericValue) ? 0 : numericValue);
-      }
-      return total;
-    }, 0);
-  };
+  return localFilteredProperties.reduce((total, item) => {
+    if (item.totalPriceWithTax) {
+      const numericValue = parseFloat(item.totalPriceWithTax.toString().replace(/[^0-9.-]/g, ''));
+      return total + (isNaN(numericValue) ? 0 : numericValue);
+    }
+    return total;
+  }, 0);
+};
 
-  // Calculate total allowance from filtered results (column M)
-  const calculateTotalAllowance = () => {
-    return filteredProperties.reduce((total, item) => {
-      if (item.totalBudgetWithTax) {
-        // Remove any non-numeric characters and convert to number
-        const numericValue = parseFloat(item.totalBudgetWithTax.toString().replace(/[^0-9.-]/g, ''));
-        return total + (isNaN(numericValue) ? 0 : numericValue);
+const calculateTotalAllowance = () => {
+  return localFilteredProperties.reduce((total, item) => {
+    if (item.totalBudgetWithTax) {
+      const cleanedValue = item.totalBudgetWithTax.toString().replace(/[$,£€¥₹\s]/g, '').replace(/[^0-9.-]/g, '');
+      const numericValue = parseFloat(cleanedValue);
+      
+      if (!isNaN(numericValue)) {
+        return total + numericValue;
       }
-      return total;
-    }, 0);
-  };
+    }
+    return total;
+  }, 0);
+};
+
+const calculateTotalQuantity = () => {
+  return localFilteredProperties.reduce((total, item) => {
+    if (item.quantity) {
+      const numericValue = parseFloat(item.quantity.toString().replace(/[^0-9.-]/g, ''));
+      return total + (isNaN(numericValue) ? 0 : numericValue);
+    }
+    return total;
+  }, 0);
+};
 
   const totalCost = calculateTotalCost();
   const totalAllowance = calculateTotalAllowance();
+  const totalQuantity = calculateTotalQuantity();
   
   // Use counting animations for both totals - super fast but still smooth!
-  const { currentValue: animatedTotalCost, isAnimating: isCostAnimating } = useCountAnimation(totalCost, 500);
-  const { currentValue: animatedTotalAllowance, isAnimating: isAllowanceAnimating } = useCountAnimation(totalAllowance, 500);
-  
+// const { currentValue: animatedTotalCost, isAnimating: isCostAnimating } = useAnimatedCounter('totalCost', totalCost);
+// const { currentValue: animatedTotalAllowance, isAnimating: isAllowanceAnimating } = useAnimatedCounter('totalAllowance', totalAllowance);
+  // console.log(`📊 Hook returned: animatedTotalAllowance=${animatedTotalAllowance}, isAnimating=${isAllowanceAnimating}, target=${totalAllowance}`);
   const formattedTotalCost = new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(animatedTotalCost);
+  }).format(totalCost);
 
   const formatDate = (dateValue) => {
     if (!dateValue || dateValue === "") return "";
@@ -446,46 +464,47 @@ const ProjectSummary = ({
     currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }).format(animatedTotalAllowance);
+  }).format(totalAllowance);
 
   return (
-    <div className="p-6">
-      {/* Main Layout: Sidebar + Content */}
-      <div className="flex gap-6">
-        {/* Left Sidebar - Filters */}
-        <div className="w-80 flex-shrink-0">
+    <div className="p-4 lg:p-6">
+      {/* Main Layout: Responsive Sidebar + Content */}
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+        {/* Left Sidebar - Filters - Stack on mobile */}
+        <div className="w-full lg:w-80 lg:flex-shrink-0 order-2 lg:order-1">
           {/* Summary Stats Cards */}
-          <div className="grid grid-cols-1 gap-3 mb-6">
-            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
-                  <Package className="w-5 h-5 text-blue-400" />
+          {/* Summary Stats Cards - 2 columns on mobile, 1 on desktop */}
+          <div className="grid grid-cols-2 lg:grid-cols-1 gap-3 mb-6">
+            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-3 lg:p-4">
+              <div className="flex items-center space-x-2 lg:space-x-3">
+                <div className="w-8 h-8 lg:w-10 lg:h-10 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                  <Package className="w-4 h-4 lg:w-5 lg:h-5 text-blue-400" />
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Total Items</p>
-                  <p className="text-white text-xl font-semibold">{totalItems}</p>
+                  <p className="text-gray-400 text-xs lg:text-sm">Total Items</p>
+                  <p className="text-white text-lg lg:text-xl font-semibold">{totalItems}</p>
                 </div>
               </div>
             </div>
-            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
-                  <CheckCircle className="w-5 h-5 text-green-400" />
+            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-3 lg:p-4">
+              <div className="flex items-center space-x-2 lg:space-x-3">
+                <div className="w-8 h-8 lg:w-10 lg:h-10 bg-green-500/20 rounded-lg flex items-center justify-center">
+                  <CheckCircle className="w-4 h-4 lg:w-5 lg:h-5 text-green-400" />
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">Items Ordered</p>
-                  <p className="text-white text-xl font-semibold">{orderedItems}</p>
+                  <p className="text-gray-400 text-xs lg:text-sm">Items Ordered</p>
+                  <p className="text-white text-lg lg:text-xl font-semibold">{orderedItems}</p>
                 </div>
               </div>
             </div>
-            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-orange-400" />
+            <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-3 lg:p-4">
+              <div className="flex items-center space-x-2 lg:space-x-3">
+                <div className="w-8 h-8 lg:w-10 lg:h-10 bg-orange-500/20 rounded-lg flex items-center justify-center">
+                  <Clock className="w-4 h-4 lg:w-5 lg:h-5 text-orange-400" />
                 </div>
                 <div>
-                  <p className="text-gray-400 text-sm">With Notes</p>
-                  <p className="text-white text-xl font-semibold">{withNotesItems}</p>
+                  <p className="text-gray-400 text-xs lg:text-sm">With Notes</p>
+                  <p className="text-white text-lg lg:text-xl font-semibold">{withNotesItems}</p>
                 </div>
               </div>
             </div>
@@ -517,12 +536,22 @@ const ProjectSummary = ({
                   <input
                     type="text"
                     placeholder="Search summary..."
-                    value={summarySearchTerm}
-                    onChange={(e) => setSummarySearchTerm(e.target.value)}
+                    value={currentSummarySearchInput}  // Changed from summarySearchTerm
+                    onChange={(e) => setCurrentSummarySearchInput(e.target.value)}  // Changed function
                     className="w-full pl-10 pr-4 py-2 bg-gray-700/50 border border-gray-600/50 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 ease-in-out transform hover:scale-[1.02] focus:scale-[1.02]"
                   />
                 </div>
               </div>
+
+              {/* Property Filter */}
+                    <CustomDropdown
+                      label="Property"
+                      value={summaryFilters.propertyName}
+                      options={propertyNameOptions}
+                      onChange={(value) => handleSummaryFilterChange('propertyName', value)}
+                      placeholder="All Properties"
+                      zIndex={70}
+                    />
 
               {/* Category Dropdown */}
               <CustomDropdown
@@ -562,8 +591,8 @@ const ProjectSummary = ({
           </div>
         </div>
 
-        {/* Right Content Area - Table */}
-        <div className="flex-1">
+        {/* Right Content Area - Table - Full width on mobile */}
+        <div className="flex-1 order-1 lg:order-2 min-w-0">
           <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 overflow-hidden">
             <div className="px-6 py-4 bg-gray-800/50 border-b border-gray-700/50">
               <div className="flex items-center justify-between">
@@ -574,31 +603,31 @@ const ProjectSummary = ({
               </div>
             </div>
 
-            <div className="overflow-x-auto max-h-96 overflow-y-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto max-h-[70vh] lg:max-h-96 overflow-y-auto">
+              <table className="min-w-full">
                 <thead className="bg-gray-800 sticky top-0 z-10 border-b border-gray-600/50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Property Name</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Category</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[200px]">Item Description</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Size</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Link</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px]">Quantity</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Total Price</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Notes</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Ordered</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Vendor</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Order Date</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Property Name</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px] lg:min-w-[150px]">Category</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px] lg:min-w-[200px]">Item Description</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Size</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Link</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[60px] lg:min-w-[80px]">Quantity</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Total Price</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px] lg:min-w-[150px]">Notes</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Ordered</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Vendor</th>
+                    <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Order Date</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-700/50">
-                  {filteredProperties.map((item, index) => (
+                  {localFilteredProperties.map((item, index) => (
                     <tr key={item.id} className="hover:bg-gray-700/20 transition-colors duration-200">
                       <EditableCell 
                         item={item} 
                         fieldName="propertyName" 
                         value={item.propertyName}
-                        className="px-4 py-4 text-sm text-gray-300"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                       >
                         <div className="flex items-center space-x-2">
                           <MapPin className="w-4 h-4 text-blue-400" />
@@ -609,7 +638,7 @@ const ProjectSummary = ({
                         item={item} 
                         fieldName="category" 
                         value={item.category}
-                        className="px-4 py-4 text-sm text-gray-300"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                       >
                         <div className="flex items-center space-x-2">
                           <Package className="w-4 h-4 text-green-400" />
@@ -620,7 +649,7 @@ const ProjectSummary = ({
                         item={item} 
                         fieldName="itemDescription" 
                         value={item.itemDescription}
-                        className="px-4 py-4 text-sm text-gray-300 font-medium"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300 font-medium"
                       >
                         {item.itemDescription}
                       </EditableCell>
@@ -628,7 +657,7 @@ const ProjectSummary = ({
                         item={item} 
                         fieldName="sizeType" 
                         value={item.sizeType}
-                        className="px-4 py-4 text-sm text-gray-300"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                       >
                         {item.sizeType}
                       </EditableCell>
@@ -636,7 +665,7 @@ const ProjectSummary = ({
                         item={item} 
                         fieldName="link" 
                         value={item.link}
-                        className="px-4 py-4 text-sm text-gray-300"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                       >
                         {item.link}
                       </EditableCell>
@@ -644,7 +673,7 @@ const ProjectSummary = ({
                         item={item} 
                         fieldName="quantity" 
                         value={item.quantity}
-                        className="px-4 py-4 text-sm text-gray-300"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                       >
                         <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-md text-xs font-medium">
                           {item.quantity}
@@ -654,7 +683,7 @@ const ProjectSummary = ({
                         item={item} 
                         fieldName="totalPriceWithTax" 
                         value={item.totalPriceWithTax}
-                        className="px-4 py-4 text-sm text-gray-300"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                       >
                         {item.totalPriceWithTax && (
                           <div className="flex items-center space-x-1">
@@ -667,7 +696,7 @@ const ProjectSummary = ({
                         item={item} 
                         fieldName="notes" 
                         value={item.notes}
-                        className="px-4 py-4 text-sm text-gray-300"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                       >
                         {item.notes && (
                           <div className="max-w-xs">
@@ -681,7 +710,7 @@ const ProjectSummary = ({
                         item={item} 
                         fieldName="ordered" 
                         value={item.ordered}
-                        className="px-4 py-4 text-sm text-gray-300"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                       >
                         {item.ordered && (
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -697,7 +726,7 @@ const ProjectSummary = ({
                         item={item} 
                         fieldName="vendor" 
                         value={item.vendor}
-                        className="px-4 py-4 text-sm text-gray-300"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                       >
                         {item.vendor && (
                           <div className="flex items-center space-x-1">
@@ -710,7 +739,7 @@ const ProjectSummary = ({
                         item={item} 
                         fieldName="orderDate" 
                         value={item.orderDate}
-                        className="px-4 py-4 text-sm text-gray-300"
+                        className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                       >
                         {formatDate(item.orderDate)}
                       </EditableCell>
@@ -723,193 +752,23 @@ const ProjectSummary = ({
 
           {/* Total Cost and Total Allowance Boxes */}
           <div className="mt-6 flex gap-6">
-            {/* Total Cost Box */}
-            <div className="relative w-80">
-              {/* Background glow effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 via-emerald-500/20 to-green-500/20 rounded-2xl blur-xl"></div>
-              
-              {/* Main total cost container */}
-              <div className="relative bg-gradient-to-br from-gray-800/90 via-gray-800/95 to-gray-900/90 backdrop-blur-xl border border-green-500/30 rounded-2xl p-4 shadow-2xl">
-                {/* Animated background particles */}
-                <div className="absolute inset-0 overflow-hidden rounded-2xl">
-                  <div className="absolute top-1/4 left-1/4 w-20 h-20 bg-green-500/5 rounded-full animate-pulse"></div>
-                  <div className="absolute bottom-1/4 right-1/4 w-16 h-16 bg-emerald-500/5 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
-                  <div className="absolute top-3/4 left-3/4 w-12 h-12 bg-green-400/5 rounded-full animate-pulse" style={{animationDelay: '2s'}}></div>
-                </div>
-
-                {/* Content */}
-                <div className="relative">
-                  {/* Top section - Icon and label */}
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="relative">
-                      {/* Rotating ring */}
-                      <div className="absolute inset-0 w-12 h-12 border-2 border-green-500/20 rounded-full animate-spin" style={{animationDuration: '8s'}}></div>
-                      <div className="absolute inset-1 w-10 h-10 border-2 border-emerald-500/30 rounded-full animate-spin" style={{animationDuration: '6s', animationDirection: 'reverse'}}></div>
-                      
-                      {/* Center icon */}
-                      <div className="relative w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-2xl shadow-green-500/25">
-                        <svg className="w-6 h-6 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                        </svg>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="relative">
-                        {/* Glowing background text */}
-                        <div className="absolute inset-0 text-sm font-black text-green-400/30 blur-sm">
-                          TOTAL COST
-                        </div>
-                        {/* Main gradient text */}
-                        <h3 className="relative text-sm font-black bg-gradient-to-r from-green-300 via-emerald-200 to-green-300 bg-clip-text text-transparent tracking-wide animate-pulse">
-                          TOTAL COST
-                        </h3>
-                      </div>
-                      <p className="text-gray-500 text-xs truncate mt-1">
-                        {filteredProperties.length} {filteredProperties.length === 1 ? 'item' : 'items'} 
-                        {filteredProperties.length !== properties.length ? ' (filtered)' : ''}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Bottom section - Total amount */}
-                  <div className="text-center">
-                    <div className="relative">
-                      {/* Glowing text effect */}
-                      <div className="absolute inset-0 text-2xl font-black text-green-400 blur-sm opacity-50">
-                        {formattedTotalCost}
-                      </div>
-                      
-                      {/* Main text with animation scaling */}
-                      <div className={`relative text-2xl font-black bg-gradient-to-r from-green-400 via-emerald-300 to-green-400 bg-clip-text text-transparent transition-all duration-300 ${
-                        isCostAnimating ? 'animate-pulse scale-110' : 'animate-pulse scale-100'
-                      }`}>
-                        {formattedTotalCost}
-                      </div>
-                    </div>
-                    
-                    {/* Subtitle with animation indicator */}
-                    <div className="flex items-center justify-center space-x-2 mt-2">
-                      <div className={`w-1.5 h-1.5 bg-green-500 rounded-full transition-all duration-300 ${
-                        isCostAnimating ? 'animate-ping scale-150' : 'animate-pulse scale-100'
-                      }`}></div>
-                      <span className={`text-green-400 text-xs font-medium tracking-wider transition-all duration-300 ${
-                        isCostAnimating ? 'text-green-300' : 'text-green-400'
-                      }`}>
-                        {isCostAnimating ? 'UPDATING' : 'LIVE TOTAL'}
-                      </span>
-                      <div className={`w-1.5 h-1.5 bg-green-500 rounded-full transition-all duration-300 ${
-                        isCostAnimating ? 'animate-ping scale-150' : 'animate-pulse scale-100'
-                      }`} style={{animationDelay: '0.5s'}}></div>
-                    </div>
-                  </div>
-
-                  {/* Progress bar effect */}
-                  <div className="mt-3 h-1 bg-gray-700/50 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-green-500 to-emerald-500 rounded-full shadow-lg shadow-green-500/25 animate-pulse"></div>
-                  </div>
-                </div>
-
-                {/* Floating sparkles */}
-                <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-green-400 rounded-full animate-ping"></div>
-                <div className="absolute bottom-2 left-2 w-1 h-1 bg-emerald-400 rounded-full animate-ping" style={{animationDelay: '1s'}}></div>
-                <div className="absolute top-1/2 right-4 w-1 h-1 bg-green-300 rounded-full animate-ping" style={{animationDelay: '2s'}}></div>
-              </div>
-            </div>
+            <ProfessionalCounter 
+              targetTotal={totalCost} 
+              label="TOTAL COST" 
+              subtitle={`${localFilteredProperties.length} ${localFilteredProperties.length === 1 ? 'item' : 'items'}${localFilteredProperties.length !== properties.length ? ' (filtered)' : ''}`}
+            />
 
             {/* Total Allowance Box */}
-            <div className="relative w-80">
-              {/* Background glow effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 via-indigo-500/20 to-blue-500/20 rounded-2xl blur-xl"></div>
-              
-              {/* Main total allowance container */}
-              <div className="relative bg-gradient-to-br from-gray-800/90 via-gray-800/95 to-gray-900/90 backdrop-blur-xl border border-blue-500/30 rounded-2xl p-4 shadow-2xl">
-                {/* Animated background particles */}
-                <div className="absolute inset-0 overflow-hidden rounded-2xl">
-                  <div className="absolute top-1/4 right-1/4 w-20 h-20 bg-blue-500/5 rounded-full animate-pulse"></div>
-                  <div className="absolute bottom-1/4 left-1/4 w-16 h-16 bg-indigo-500/5 rounded-full animate-pulse" style={{animationDelay: '1.5s'}}></div>
-                  <div className="absolute top-3/4 right-3/4 w-12 h-12 bg-blue-400/5 rounded-full animate-pulse" style={{animationDelay: '3s'}}></div>
-                </div>
-
-                {/* Content */}
-                <div className="relative">
-                  {/* Top section - Icon and label */}
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="relative">
-                      {/* Rotating squares */}
-                      <div className="absolute inset-0 w-12 h-12 border-2 border-blue-500/20 rounded-lg animate-spin" style={{animationDuration: '10s'}}></div>
-                      <div className="absolute inset-1 w-10 h-10 border-2 border-indigo-500/30 rounded-lg animate-spin" style={{animationDuration: '7s', animationDirection: 'reverse'}}></div>
-                      
-                      {/* Center icon */}
-                      <div className="relative w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center shadow-2xl shadow-blue-500/25">
-                        <svg className="w-6 h-6 text-white animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="relative">
-                        {/* Glowing background text */}
-                        <div className="absolute inset-0 text-sm font-black text-blue-400/30 blur-sm">
-                          TOTAL ALLOWANCE
-                        </div>
-                        {/* Main gradient text */}
-                        <h3 className="relative text-sm font-black bg-gradient-to-r from-blue-300 via-indigo-200 to-blue-300 bg-clip-text text-transparent tracking-wide animate-pulse">
-                          TOTAL ALLOWANCE
-                        </h3>
-                      </div>
-                      <p className="text-gray-500 text-xs truncate mt-1">
-                        {filteredProperties.length} {filteredProperties.length === 1 ? 'budget' : 'budgets'} 
-                        {filteredProperties.length !== properties.length ? ' (filtered)' : ''}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Bottom section - Total amount */}
-                  <div className="text-center">
-                    <div className="relative">
-                      {/* Glowing text effect */}
-                      <div className="absolute inset-0 text-2xl font-black text-blue-400 blur-sm opacity-50">
-                        {formattedTotalAllowance}
-                      </div>
-                      
-                      {/* Main text with animation scaling */}
-                      <div className={`relative text-2xl font-black bg-gradient-to-r from-blue-400 via-indigo-300 to-blue-400 bg-clip-text text-transparent transition-all duration-300 ${
-                        isAllowanceAnimating ? 'animate-pulse scale-110' : 'animate-pulse scale-100'
-                      }`}>
-                        {formattedTotalAllowance}
-                      </div>
-                    </div>
-                    
-                    {/* Subtitle with animation indicator */}
-                    <div className="flex items-center justify-center space-x-2 mt-2">
-                      <div className={`w-1.5 h-1.5 bg-blue-500 rounded-full transition-all duration-300 ${
-                        isAllowanceAnimating ? 'animate-ping scale-150' : 'animate-pulse scale-100'
-                      }`}></div>
-                      <span className={`text-blue-400 text-xs font-medium tracking-wider transition-all duration-300 ${
-                        isAllowanceAnimating ? 'text-blue-300' : 'text-blue-400'
-                      }`}>
-                        {isAllowanceAnimating ? 'UPDATING' : 'BUDGET'}
-                      </span>
-                      <div className={`w-1.5 h-1.5 bg-blue-500 rounded-full transition-all duration-300 ${
-                        isAllowanceAnimating ? 'animate-ping scale-150' : 'animate-pulse scale-100'
-                      }`} style={{animationDelay: '0.5s'}}></div>
-                    </div>
-                  </div>
-
-                  {/* Progress bar effect */}
-                  <div className="mt-3 h-1 bg-gray-700/50 rounded-full overflow-hidden">
-                    <div className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full shadow-lg shadow-blue-500/25 animate-pulse"></div>
-                  </div>
-                </div>
-
-                {/* Floating sparkles */}
-                <div className="absolute top-2 left-2 w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping"></div>
-                <div className="absolute bottom-2 right-2 w-1 h-1 bg-indigo-400 rounded-full animate-ping" style={{animationDelay: '1.5s'}}></div>
-                <div className="absolute top-1/2 left-4 w-1 h-1 bg-blue-300 rounded-full animate-ping" style={{animationDelay: '3s'}}></div>
-              </div>
-            </div>
+            <ProfessionalAllowanceCounter 
+              targetTotal={totalAllowance} 
+              label="TOTAL ALLOWANCE" 
+              subtitle={`${localFilteredProperties.length} ${localFilteredProperties.length === 1 ? 'budget' : 'budgets'}${localFilteredProperties.length !== properties.length ? ' (filtered)' : ''}`}
+            />
+            <ProfessionalQuantityCounter 
+              targetTotal={totalQuantity} 
+              label="TOTAL QUANTITY" 
+              subtitle={`${localFilteredProperties.length} ${localFilteredProperties.length === 1 ? 'item' : 'items'}${localFilteredProperties.length !== properties.length ? ' (filtered)' : ''}`}
+            />
           </div>
         </div>
       </div>

@@ -13,27 +13,60 @@
   max-width: 2168px;
 }
 
-.table-scroll table {
-  width: 2000px;
-  min-width: 2000px;
+/* Enhanced scrollbar styling for dark theme */
+.table-scroll, 
+.overflow-x-auto, 
+.overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: #6b7280 #374151;
 }
 
-.table-scroll::-webkit-scrollbar {
-  height: 8px;
-  width: 8px;
+/* Webkit browsers (Chrome, Safari, Edge) */
+.table-scroll::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
 }
 
-.table-scroll::-webkit-scrollbar-track {
+.table-scroll::-webkit-scrollbar-track,
+.overflow-x-auto::-webkit-scrollbar-track,
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: linear-gradient(90deg, #1f2937, #374151);
+  border-radius: 6px;
+  border: 1px solid #4b5563;
+}
+
+.table-scroll::-webkit-scrollbar-thumb,
+.overflow-x-auto::-webkit-scrollbar-thumb,
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: linear-gradient(90deg, #6b7280, #9ca3af);
+  border-radius: 6px;
+  border: 1px solid #4b5563;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.table-scroll::-webkit-scrollbar-thumb:hover,
+.overflow-x-auto::-webkit-scrollbar-thumb:hover,
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(90deg, #9ca3af, #d1d5db);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.table-scroll::-webkit-scrollbar-corner,
+.overflow-x-auto::-webkit-scrollbar-corner,
+.overflow-y-auto::-webkit-scrollbar-corner {
   background: #374151;
 }
 
-.table-scroll::-webkit-scrollbar-thumb {
-  background: #6b7280;
-  border-radius: 4px;
-}
-
-.table-scroll::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+/* Glowing effect on scroll */
+.table-scroll::-webkit-scrollbar-thumb:active,
+.overflow-x-auto::-webkit-scrollbar-thumb:active,
+.overflow-y-auto::-webkit-scrollbar-thumb:active {
+  background: linear-gradient(90deg, #60a5fa, #3b82f6);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 8px rgba(59, 130, 246, 0.4);
 }
 
 @theme inline {

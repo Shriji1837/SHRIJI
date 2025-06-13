@@ -4,7 +4,10 @@ import { useSession, signIn, signOut } from 'next-auth/react';
 import ReactDOM from 'react-dom';
 import ProjectSummary from './ProjectSummary';
 import { Search, Home, DollarSign, MapPin, Package, User, Calendar, CheckCircle, RefreshCw, Loader2, UserCircle, Settings, LogOut, Eye, EyeOff, UserPlus, Lock, Filter } from 'lucide-react';
-
+import { useApprovals } from '../hooks/useApprovals';
+import { ChangeSummary } from '../components/ChangeSummary';
+import AdminInbox from '../components/AdminInbox';
+import InvestorNotificationModal from '../components/InvestorNotificationModal';
 
 // Auth Form: standalone component so its state sticks
 const AuthForm = ({ mode, onSubmit, onModeChange, loading }) => {
@@ -170,9 +173,24 @@ const ConstructionTracker = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [showToast, setShowToast] = useState(false);
   const [showMatchPopup, setShowMatchPopup] = useState(false);
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const { 
+  trackChange, 
+  submitForApproval, 
+  hasFieldChange, 
+  getFieldNewValue,
+  pendingChanges, 
+  pendingChangesCount,
+  hasUnreadNotifications,
+  fetchNotifications,
+  approvalRequests,
+  loading: approvalsLoading 
+} = useApprovals();
   // Navigation states
 const [isNavOpen, setIsNavOpen] = useState(false);
 const [currentPage, setCurrentPage] = useState('detailed-breakdown');
+const [showInbox, setShowInbox] = useState(false);
+const [selectedApprovalRequest, setSelectedApprovalRequest] = useState(null);
 
   // Data states
   const [properties, setProperties] = useState([]);
@@ -183,6 +201,7 @@ const [currentPage, setCurrentPage] = useState('detailed-breakdown');
   
   // Filter states
   const [filters, setFilters] = useState({
+    propertyName: '',
     category: '',
     floor: '',
     vendor: '',
@@ -214,6 +233,7 @@ const navigationItems = [
   }
 ];
 
+
 // Handle page navigation
 const handlePageChange = (pageId) => {
   setCurrentPage(pageId);
@@ -230,14 +250,8 @@ const handlePageChange = (pageId) => {
       'hardwareType',
       'link', 
       'vendor',
-      'notes',
-      'pricePerItem',
-      'totalPriceWithTax',
-      'differenceFromAllowance',
-      'shrijiShare',
-      'clientShare',
-      'shrijiComments',
-      'orderId',
+      'notes',    
+      'orderDate',
       'approval'
     ];
   };
@@ -297,13 +311,33 @@ const handlePageChange = (pageId) => {
   setShowProfile(false);
 };
 
-
+const handleNotificationClose = () => {
+  setShowNotificationModal(false);
+  // Refetch notifications to update the UI
+  fetchNotifications();
+  console.log('Notification dismissed');
+};
 
   const fetchSheetData = async () => {
   try {
     setLoading(true);
     setError(null);
     
+    // Fetch investor properties first if user is investor
+    let userInvestorProperties = [];
+    if (currentUser?.role === 'investor') {
+      console.log('🔍 Fetching investor properties for:', currentUser.username);
+      try {
+        const investorResponse = await fetch('/api/investor-properties');
+        const investorResult = await investorResponse.json();
+        if (investorResponse.ok) {
+          userInvestorProperties = investorResult.properties || [];
+          console.log('✅ Got investor properties:', userInvestorProperties);
+        }
+      } catch (error) {
+        console.error('Error fetching investor properties:', error);
+      }
+    }
     const response = await fetch('/api/sheets');
     const result = await response.json();
     
@@ -354,11 +388,26 @@ const handlePageChange = (pageId) => {
       setTimeout(() => setShowMatchPopup(false), 2000);
     }
 
-    // Update properties data
-    setProperties(transformedData);
+    
+    
+    // Filter data based on investor access using local properties
+    let filteredForInvestor = transformedData;
+    if (currentUser?.role === 'investor' && userInvestorProperties.length > 0) {
+      filteredForInvestor = transformedData.filter(property => {
+        return userInvestorProperties.some(investorProp => 
+          investorProp.toLowerCase() === property.propertyName?.toLowerCase()
+        );
+      });
+    }
+    
+    console.log(`📊 Original data: ${transformedData.length} items`);
+    console.log(`🎯 Filtered for investor: ${filteredForInvestor.length} items`);
+    
+    // Update properties data with filtered results
+    setProperties(filteredForInvestor);
     
     // Preserve user's current filter state by re-applying filters to new data
-    applyFiltersToData(transformedData);
+    applyFiltersToData(filteredForInvestor);
     
     setLastUpdated(new Date());
     setLoading(false);
@@ -382,6 +431,9 @@ const handlePageChange = (pageId) => {
       );
     }
 
+    if (filters.propertyName) {
+    filtered = filtered.filter(item => item.propertyName === filters.propertyName);
+    } 
     if (filters.category) {
       filtered = filtered.filter(item => item.category === filters.category);
     }
@@ -404,7 +456,7 @@ const handlePageChange = (pageId) => {
   useEffect(() => {
     if (isAuthenticated) {
       fetchSheetData();
-      const interval = setInterval(fetchSheetData, 30000);
+      const interval = setInterval(fetchSheetData, 1200000);
       return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
@@ -432,6 +484,7 @@ const handlePageChange = (pageId) => {
 
   const clearAllFilters = () => {
     setFilters({
+      propertyName: '',
       category: '',
       floor: '',
       vendor: '',
@@ -559,16 +612,15 @@ const updateSheetCellWithFallback = async (rowIndex, columnLetter, newValue) => 
       allowancePerItem: 'L',
       totalBudgetWithTax: 'M',
       notes: 'N',
-      qualityToBeOrdered: 'O',
+      quantityToBeOrdered: 'O',
       pricePerItem: 'P',
       totalPriceWithTax: 'Q',
       differenceFromAllowance: 'R',
-      shrijiShare: 'S',
-      clientShare: 'T',
       shrijiComments: 'U',
-      ordered: 'V',
-      orderId: 'W',
-      approval: 'Z'
+      ordered: 'W',
+      orderDate: 'Y',
+      approval: 'V',
+      allowanceCollection: 'AA'
     };
     return columnMap[fieldName];
   };
@@ -577,89 +629,70 @@ const updateSheetCellWithFallback = async (rowIndex, columnLetter, newValue) => 
   const EditableCell = ({ item, fieldName, value, className, children }) => {
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(value);
+  
   const userRole = currentUser?.role;
   const editable = isFieldEditable(fieldName, userRole);
+  
+  // Check if this field has pending changes
+  const hasPendingChange = hasFieldChange(item.id, fieldName);
+  const newValue = getFieldNewValue(item.id, fieldName);
+  const displayValue = hasPendingChange ? newValue : value;
 
-  // when input loses focus or Enter is pressed
   const handleSave = async () => {
     setEditing(false);
-    if (editValue !== value) {
-      try {
-        // Update Google Sheets
+    if (editValue === displayValue) return;
+
+    try {
+      const result = trackChange(item.id, fieldName, value, editValue, userRole);
+      
+      if (result === 'direct') {
+        // Admin - update sheets directly
         await updateSheetCell(item.rowIndex, getColumnLetter(fieldName), editValue);
-        
-        // Update local state immediately for instant UI feedback
-        setProperties(prev =>
-          prev.map(p => p.id === item.id ? { ...p, [fieldName]: editValue } : p)
-        );
-        setFilteredProperties(prev =>
-          prev.map(p => p.id === item.id ? { ...p, [fieldName]: editValue } : p)
-        );
-        
-        console.log(`Local state updated: ${fieldName} = ${editValue}`);
-        
-      } catch (error) {
-        console.error('Error saving cell:', error);
-        // Reset to original value on error
-        setEditValue(value);
-        
-        // Revert local state if there was an error
-        setProperties(prev =>
-          prev.map(p => p.id === item.id ? { ...p, [fieldName]: value } : p)
-        );
-        setFilteredProperties(prev =>
-          prev.map(p => p.id === item.id ? { ...p, [fieldName]: value } : p)
-        );
+        setProperties(prev => prev.map(p => p.id === item.id ? { ...p, [fieldName]: editValue } : p));
+        setFilteredProperties(prev => prev.map(p => p.id === item.id ? { ...p, [fieldName]: editValue } : p));
+        showToastMessage(`✅ Updated ${fieldName}`, 2000);
+      } else if (result === 'tracked') {
+        // Investor - track change, update local UI
+        setProperties(prev => prev.map(p => p.id === item.id ? { ...p, [fieldName]: editValue } : p));
+        setFilteredProperties(prev => prev.map(p => p.id === item.id ? { ...p, [fieldName]: editValue } : p));
+        showToastMessage(`📝 Change tracked: ${fieldName}`, 2000);
       }
+    } catch (error) {
+      setEditValue(displayValue);
+      showToastMessage(`❌ Failed: ${error.message}`, 4000);
     }
   };
 
-  // Update editValue when value prop changes
   useEffect(() => {
-    setEditValue(value);
-  }, [value]);
+    setEditValue(displayValue);
+  }, [displayValue]);
 
-  // Handle click to edit (prevent event bubbling from links)
-  const handleEditClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setEditing(true);
-  };
-
-  // if user shouldn't edit this field, just render normal cell
   if (!editable) {
     return <td className={className}>{children}</td>;
   }
 
-  // Special handling for link fields
-  if (fieldName === 'link' && value && !editing) {
+  // Special handling for links (same as before)
+  if (fieldName === 'link' && displayValue && !editing) {
     return (
-      <td className={className}>
+      <td className={`${className} ${hasPendingChange ? 'bg-yellow-500/10 border-l-4 border-yellow-500' : ''}`}>
         <div className="flex items-center space-x-2 group">
-          <a 
-            href={value} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 transition-colors duration-200 underline flex-1"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {formatLink(value)}
+          <a href={displayValue} target="_blank" rel="noopener noreferrer"
+             className="text-blue-400 hover:text-blue-300 transition-colors duration-200 underline flex-1"
+             onClick={(e) => e.stopPropagation()}>
+            {formatLink(displayValue)}
           </a>
-          <button
-            onClick={handleEditClick}
-            className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-gray-600 hover:bg-gray-500 text-white text-xs px-2 py-1 rounded"
-            title="Edit link"
-          >
+          <button onClick={() => setEditing(true)}
+                  className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-gray-600 hover:bg-gray-500 text-white text-xs px-2 py-1 rounded">
             Edit
           </button>
+          {hasPendingChange && <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse"></div>}
         </div>
       </td>
     );
   }
 
-  // editable: show input when in editing mode
   return (
-    <td className={className}>
+    <td className={`${className} ${hasPendingChange ? 'bg-yellow-500/10 border-l-4 border-yellow-500' : ''}`}>
       {editing ? (
         <input
           className="w-full bg-gray-700/50 text-white rounded px-2 py-1 border border-gray-600 focus:border-blue-400 focus:outline-none"
@@ -667,23 +700,18 @@ const updateSheetCellWithFallback = async (rowIndex, columnLetter, newValue) => 
           onChange={e => setEditValue(e.target.value)}
           onBlur={handleSave}
           onKeyDown={e => {
-            if (e.key === 'Enter') {
-              handleSave();
-            } else if (e.key === 'Escape') {
-              setEditValue(value);
-              setEditing(false);
-            }
+            if (e.key === 'Enter') handleSave();
+            else if (e.key === 'Escape') { setEditValue(displayValue); setEditing(false); }
           }}
           autoFocus
-          placeholder={fieldName === 'link' ? 'Enter URL...' : 'Enter value...'}
         />
       ) : (
-        <div 
-          className="cursor-pointer hover:bg-gray-600/30 rounded px-1 py-0.5 transition-colors duration-200" 
-          onClick={handleEditClick}
-          title="Click to edit"
-        >
-          {children || <span className="text-gray-500 italic">Click to add...</span>}
+        <div className="relative">
+          <div className="cursor-pointer hover:bg-gray-600/30 rounded px-1 py-0.5 transition-colors duration-200" 
+               onClick={() => setEditing(true)}>
+            {children || <span className="text-gray-500 italic">Click to add...</span>}
+          </div>
+          {hasPendingChange && <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-pulse"></div>}
         </div>
       )}
     </td>
@@ -854,10 +882,11 @@ const NavigationSidebar = () => {
 const ProjectSummaryPage = () => {
   return (
     <ProjectSummary
+      key="project-summary" // Add this key to prevent re-mounting
       properties={properties}
       filteredProperties={filteredProperties}
       setFilteredProperties={setFilteredProperties}
-      setProperties={setProperties}  // Add this line
+      setProperties={setProperties}
       updateSheetCell={updateSheetCell}
       getColumnLetter={getColumnLetter}
       isFieldEditable={isFieldEditable}
@@ -1028,6 +1057,10 @@ const ProjectSummaryPage = () => {
     ...new Set(properties.map(item => item.category))
   ].filter(Boolean);
 
+  const uniquePropertyNames = [
+  ...new Set(properties.map(item => item.propertyName))
+].filter(Boolean);
+
   const uniqueFloors = [
     ...new Set(properties.map(item => item.floor))
   ].filter(Boolean);
@@ -1041,6 +1074,11 @@ const ProjectSummaryPage = () => {
     { value: '', label: 'All Categories' },
     ...uniqueCategories.map(cat => ({ value: cat, label: cat }))
   ];
+
+  const propertyNameOptions = [
+  { value: '', label: 'All Properties' },
+  ...uniquePropertyNames.map(propertyName => ({ value: propertyName, label: propertyName }))
+];
 
   const floorOptions = [
     { value: '', label: 'All Floors' },
@@ -1066,7 +1104,7 @@ const ProjectSummaryPage = () => {
     if (!show) return null;
 
     return (
-      <div className="fixed top-4 right-4 z-50 transform transition-all duration-500 ease-out">
+      <div className="fixed top-4 right-4 z-[9999] transform transition-all duration-500 ease-out">
         <div className="bg-red-500/90 backdrop-blur-xl border border-red-400/50 rounded-2xl px-6 py-4 shadow-2xl max-w-sm">
           <div className="flex items-center space-x-3">
             <div className="w-6 h-6 bg-red-400 rounded-full flex items-center justify-center flex-shrink-0">
@@ -1250,6 +1288,28 @@ const ProjectSummaryPage = () => {
                     {loading ? 'Updating...' : 'Refresh'}
                   </span>
                 </button>
+                {/* Check for Updates button - investors only */}
+                {currentUser?.role === 'investor' && (
+                  <button
+                    onClick={() => {
+  console.log('🔍 fetchNotifications function:', fetchNotifications);
+  console.log('🔍 Current user:', currentUser);
+  console.log('🔍 User role:', currentUser?.role);
+  
+  if (fetchNotifications) {
+    fetchNotifications();
+  } else {
+    console.error('❌ fetchNotifications is undefined!');
+  }
+  
+  console.log('Checking for notifications...');
+}}
+                    className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors duration-200"
+                  >
+                    <RefreshCw className="w-4 h-4" />
+                    <span className="text-white text-sm">Check for Updates</span>
+                  </button>
+                )}
                 <div className="bg-gray-700/50 px-4 py-2 rounded-lg border border-gray-600/50">
                   <span className="text-gray-300 text-sm">
                     {filteredProperties.length !== properties.length 
@@ -1263,7 +1323,31 @@ const ProjectSummaryPage = () => {
                     Last updated: {lastUpdated.toLocaleTimeString()}
                   </div>
                 )}
-                
+                {/* Admin Inbox Icon */}
+                {currentUser?.role === 'admin' && (
+                  <button
+                    onClick={() => {
+                      setShowInbox(true);
+                      console.log('Opening inbox!');
+                    }}
+                    className="flex items-center justify-center w-12 h-12 bg-gray-700/50 hover:bg-gray-600/50 rounded-xl border border-gray-600/50 transition-all duration-300 ease-in-out transform hover:scale-[1.05] focus:scale-[1.05] group relative"
+                    title="Admin Inbox"
+                  >
+                    {/* Envelope Mail Icon */}
+                    <svg className="w-6 h-6 text-gray-400 group-hover:text-blue-300 transition-colors duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    
+                    {/* Notification Badge (if there are pending approvals) */}
+                    {approvalRequests.length > 0 && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center">
+                        <span className="text-white text-xs font-bold">
+                          {approvalRequests.length > 3 ? '3+' : approvalRequests.length}
+                        </span>
+                      </div>
+                    )}
+                  </button>
+                )}
                 <div className="relative">
                   <button
                     onClick={() => setShowProfile(prev => !prev)}
@@ -1313,12 +1397,25 @@ const ProjectSummaryPage = () => {
         </div>
 
         {/* Main Content */}
-        {currentPage === 'detailed-breakdown' ? (
-          <div className="p-6">
-            {/* Main Layout: Sidebar + Content */}
-            <div className="flex gap-6">
-              {/* Left Sidebar - Filters */}
-              <div className="w-80 flex-shrink-0">
+        {showInbox ? (
+          <AdminInbox 
+            onClose={() => setShowInbox(false)}
+            selectedRequest={selectedApprovalRequest}
+            setSelectedRequest={setSelectedApprovalRequest}
+            currentUser={currentUser}
+            properties={properties}
+            updateSheetCell={updateSheetCell}
+            getColumnLetter={getColumnLetter}
+            setProperties={setProperties}
+            setFilteredProperties={setFilteredProperties}
+            showToastMessage={showToastMessage}
+          />
+        ) : currentPage === 'detailed-breakdown' ? (
+          <div className="p-4 lg:p-6">
+            {/* Main Layout: Responsive Sidebar + Content */}
+            <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
+              {/* Left Sidebar - Filters - Stack on mobile */}
+              <div className="w-full lg:w-80 lg:flex-shrink-0 order-2 lg:order-1">
                 {/* Summary Stats Cards */}
                 <div className="grid grid-cols-1 gap-3 mb-6">
                   <div className="bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 p-4">
@@ -1405,6 +1502,15 @@ const ProjectSummaryPage = () => {
                         />
                       </div>
                     </div>
+                    
+                    <CustomDropdown
+                      label="Property Name"
+                      value={filters.propertyName}
+                      options={propertyNameOptions}
+                      onChange={(value) => handleFilterChange('propertyName', value)}
+                      placeholder="All Properties"
+                      zIndex={60}
+                    />
 
                     {/* Move your existing CustomDropdown components here */}
                     <CustomDropdown
@@ -1477,7 +1583,7 @@ const ProjectSummaryPage = () => {
               </div>
 
               {/* Right Content Area - Table */}
-              <div className="flex-1">
+              <div className="flex-1 order-1 lg:order-2 min-w-0">
                 <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl border border-gray-700/50 overflow-hidden">
                   <div className="px-6 py-4 bg-gray-800/50 border-b border-gray-700/50">
                     <div className="flex items-center justify-between">
@@ -1493,33 +1599,32 @@ const ProjectSummaryPage = () => {
                     </div>
                   </div>
 
-                  <div className="table-scroll">
-                    <table className="w-full">
+                  <div className="overflow-x-auto overflow-y-auto max-h-[70vh] lg:max-h-96">
+                    <table className="min-w-full">
                       <thead className="bg-gray-800 sticky top-0 z-10 border-b border-gray-600/50">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Property Name</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Category</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Floor</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Location</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Item Description</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Size/Type</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Hardware Type</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px]">Quantity</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Link</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Vendor</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Allowance/Item</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Total Allowance</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Notes</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Qty to Order</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Price/Item</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Total Price</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Difference</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Shriji Share</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px]">Client Share</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[150px]">Shriji Comments</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px]">Ordered?</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Order ID</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px]">Approval</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px] lg:min-w-[150px]">Property Name</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[150px]">Category</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Floor</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Location</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px] lg:min-w-[150px]">Item Description</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Size/Type</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Hardware Type</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[60px] lg:min-w-[80px]">Quantity</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Link</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Vendor</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Allowance/Item</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Total Allowance</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px] lg:min-w-[150px]">Notes</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Qty to Order</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Price/Item</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Total Purchase Price</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px] lg:min-w-[150px]">Difference from Allowance</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px] lg:min-w-[150px]">Shriji Comments</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[60px] lg:min-w-[80px]">Ordered?</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Order Date</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Client's Approval</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Allowance Collection</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-700/50">
@@ -1529,7 +1634,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="propertyName" 
                               value={item.propertyName}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               <div className="flex items-center space-x-2">
                                 <MapPin className="w-4 h-4 text-blue-400" />
@@ -1540,7 +1645,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="category" 
                               value={item.category}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               <div className="flex items-center space-x-2">
                                 <Package className="w-4 h-4 text-green-400" />
@@ -1551,7 +1656,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="floor" 
                               value={item.floor}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               <span className="bg-gray-700/50 px-2 py-1 rounded-md text-xs">
                                 {item.floor}
@@ -1561,7 +1666,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="location" 
                               value={item.location}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.location}
                             </EditableCell>
@@ -1569,7 +1674,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="itemDescription" 
                               value={item.itemDescription}
-                              className="px-4 py-4 text-sm text-gray-300 font-medium"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300 font-medium"
                             >
                               {item.itemDescription}
                             </EditableCell>
@@ -1577,7 +1682,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="sizeType" 
                               value={item.sizeType}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.sizeType}
                             </EditableCell>
@@ -1585,7 +1690,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="hardwareType" 
                               value={item.hardwareType}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.hardwareType}
                             </EditableCell>
@@ -1593,7 +1698,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="quantity" 
                               value={item.quantity}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               <span className="bg-blue-500/20 text-blue-300 px-2 py-1 rounded-md text-xs font-medium">
                                 {item.quantity}
@@ -1603,7 +1708,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="link" 
                               value={item.link}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.link}
                             </EditableCell>
@@ -1611,7 +1716,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="vendor" 
                               value={item.vendor}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.vendor && (
                                 <div className="flex items-center space-x-1">
@@ -1624,7 +1729,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="allowancePerItem" 
                               value={item.allowancePerItem}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.allowancePerItem && (
                                 <div className="flex items-center space-x-1">
@@ -1637,7 +1742,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="totalBudgetWithTax" 
                               value={item.totalBudgetWithTax}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.totalBudgetWithTax && (
                                 <div className="flex items-center space-x-1">
@@ -1650,7 +1755,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="notes" 
                               value={item.notes}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.notes && (
                                 <div className="max-w-xs">
@@ -1662,20 +1767,20 @@ const ProjectSummaryPage = () => {
                             </EditableCell>
                             <EditableCell 
                               item={item} 
-                              fieldName="qualityToBeOrdered" 
-                              value={item.qualityToBeOrdered}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              fieldName="quantityToBeOrdered" 
+                              value={item.quantityToBeOrdered}
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               <div className="flex items-center space-x-1">
                                 <CheckCircle className="w-4 h-4 text-green-400" />
-                                <span>{item.qualityToBeOrdered}</span>
+                                <span>{item.quantityToBeOrdered}</span>
                               </div>
                             </EditableCell>
                             <EditableCell 
                               item={item} 
                               fieldName="pricePerItem" 
                               value={item.pricePerItem}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.pricePerItem && (
                                 <div className="flex items-center space-x-1">
@@ -1688,7 +1793,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="totalPriceWithTax" 
                               value={item.totalPriceWithTax}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.totalPriceWithTax && (
                                 <div className="flex items-center space-x-1">
@@ -1701,7 +1806,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="differenceFromAllowance" 
                               value={item.differenceFromAllowance}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.differenceFromAllowance && (
                                 <div className="flex items-center space-x-1">
@@ -1712,35 +1817,9 @@ const ProjectSummaryPage = () => {
                             </EditableCell>
                             <EditableCell 
                               item={item} 
-                              fieldName="shrijiShare" 
-                              value={item.shrijiShare}
-                              className="px-4 py-4 text-sm text-gray-300"
-                            >
-                              {item.shrijiShare && (
-                                <div className="flex items-center space-x-1">
-                                  <DollarSign className="w-4 h-4 text-purple-400" />
-                                  <span className="font-medium text-purple-300">{formatCurrency(item.shrijiShare)}</span>
-                                </div>
-                              )}
-                            </EditableCell>
-                            <EditableCell 
-                              item={item} 
-                              fieldName="clientShare" 
-                              value={item.clientShare}
-                              className="px-4 py-4 text-sm text-gray-300"
-                            >
-                              {item.clientShare && (
-                                <div className="flex items-center space-x-1">
-                                  <DollarSign className="w-4 h-4 text-cyan-400" />
-                                  <span className="font-medium text-cyan-300">{formatCurrency(item.clientShare)}</span>
-                                </div>
-                              )}
-                            </EditableCell>
-                            <EditableCell 
-                              item={item} 
                               fieldName="shrijiComments" 
                               value={item.shrijiComments}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.shrijiComments && (
                                 <div className="max-w-xs">
@@ -1754,7 +1833,7 @@ const ProjectSummaryPage = () => {
                               item={item} 
                               fieldName="ordered" 
                               value={item.ordered}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.ordered && (
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -1768,17 +1847,18 @@ const ProjectSummaryPage = () => {
                             </EditableCell>
                             <EditableCell 
                               item={item} 
-                              fieldName="orderId" 
-                              value={item.orderId}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              fieldName="orderDate" 
+                              value={item.orderDate}
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
-                              {item.orderId}
+                              {formatDate(item.orderDate)}
                             </EditableCell>
+
                             <EditableCell 
                               item={item} 
                               fieldName="approval" 
                               value={item.approval}
-                              className="px-4 py-4 text-sm text-gray-300"
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
                             >
                               {item.approval && (
                                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -1789,6 +1869,26 @@ const ProjectSummaryPage = () => {
                                     : 'bg-red-500/20 text-red-300'
                                 }`}>
                                   {item.approval}
+                                </span>
+                              )}
+                            </EditableCell>
+                            <EditableCell 
+                              item={item} 
+                              fieldName="allowanceCollection" 
+                              value={item.allowanceCollection}
+                              className="px-2 lg:px-4 py-3 lg:py-4 text-xs lg:text-sm text-gray-300"
+                            >
+                              {item.allowanceCollection && (
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                  item.allowanceCollection.toLowerCase() === 'y' || item.allowanceCollection.toLowerCase() === 'yes'
+                                    ? 'bg-green-500/20 text-green-300' 
+                                    : item.allowanceCollection.toLowerCase() === 'pending'
+                                    ? 'bg-red-500/20 text-red-300'
+                                    : item.allowanceCollection.toLowerCase() === 'n' || item.allowanceCollection.toLowerCase() === 'no'
+                                    ? 'bg-gray-500/20 text-gray-400'
+                                    : 'bg-gray-500/20 text-gray-300' // fallback for any other values
+                                }`}>
+                                  {item.allowanceCollection}
                                 </span>
                               )}
                             </EditableCell>
@@ -1804,7 +1904,24 @@ const ProjectSummaryPage = () => {
         ) : (
           <ProjectSummaryPage />
         )}
-
+        {/* Change Summary - only show for investors on detailed breakdown */}
+        {isAuthenticated && !showLoginSuccess && currentPage === 'detailed-breakdown' && currentUser?.role === 'investor' && (
+          <ChangeSummary 
+            currentUser={currentUser}
+            showToastMessage={showToastMessage}
+            pendingChanges={pendingChanges}
+            pendingChangesCount={pendingChangesCount}
+            submitForApproval={submitForApproval}
+            loading={approvalsLoading}    // Use the renamed variable
+          />
+        )}
+        {/* Investor Notification Modal */}
+        {isAuthenticated && !showLoginSuccess && currentUser?.role === 'investor' && hasUnreadNotifications && (
+          <InvestorNotificationModal
+            currentUser={currentUser}
+            onClose={handleNotificationClose}
+          />
+        )}
         {showProfile && (
           <div 
             className="fixed inset-0 z-40" 
