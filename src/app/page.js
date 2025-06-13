@@ -1623,7 +1623,7 @@ const ProjectSummaryPage = () => {
                           <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[120px] lg:min-w-[150px]">Shriji Comments</th>
                           <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[60px] lg:min-w-[80px]">Ordered?</th>
                           <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Order Date</th>
-                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Client's Approval</th>
+                          <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[80px] lg:min-w-[100px]">Client&apos;s Approval</th>
                           <th className="px-2 lg:px-4 py-3 text-left text-xs font-medium text-gray-300 uppercase tracking-wider min-w-[100px] lg:min-w-[120px]">Allowance Collection</th>
                         </tr>
                       </thead>
