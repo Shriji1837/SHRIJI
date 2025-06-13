@@ -114,9 +114,9 @@ export const ChangeSummary = ({ currentUser, showToastMessage, pendingChanges, p
                         </span>
                       </div>
                       <div className="text-xs text-gray-300">
-                        <span className="text-red-300">"{change.oldValue || 'empty'}"</span>
+                        <span className="text-red-300">&quot;{change.oldValue || 'empty'}&quot;</span>
                         <span className="mx-2">→</span>
-                        <span className="text-green-300">"{change.newValue}"</span>
+                        <span className="text-green-300">&quot;{change.newValue}&quot;</span>
                       </div>
                     </div>
                   ))}
