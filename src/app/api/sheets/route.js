@@ -31,6 +31,23 @@ export async function GET() {
     }
     
     const headers = rows[0]
+    console.log('🔍 DEBUG: Actual headers from Google Sheets:')
+headers.forEach((header, index) => {
+  const columnLetter = String.fromCharCode(65 + index);
+  console.log(`Column ${columnLetter} (${index}): "${header}" (length: ${header.length})`)
+})
+
+// Specifically check column M (index 12)
+console.log('\n🔧 Column M specifically:')
+console.log(`Header: "${headers[12]}" (type: ${typeof headers[12]})`)
+console.log(`Trimmed: "${headers[12]?.trim()}"`)
+console.log(`Mapped to: ${mapHeaderToFieldName(headers[12])}`)
+
+// Check first few data rows for column M
+console.log('\n📊 First 5 rows of column M data:')
+for (let i = 1; i <= 5 && i < rows.length; i++) {
+  console.log(`Row ${i + 1}: "${rows[i][12]}" (type: ${typeof rows[i][12]})`)
+}
     const dataRows = rows.slice(1)
     
     const transformedData = dataRows.map((row, index) => {
@@ -116,34 +133,59 @@ export async function POST(request) {
 }
 
 // Helper function to map headers to field names
+// Replace your mapHeaderToFieldName function in route.js with this:
 function mapHeaderToFieldName(header) {
+  // Normalize the header by trimming whitespace
+  const normalizedHeader = header.trim()
+  
   const headerMap = {
     'Property Name': 'propertyName',
     'Category': 'category',
+    'Sub Category': 'subCategory',
     'Floor': 'floor',
     'Location': 'location',
     'Item Description': 'itemDescription',
     'Size/Type': 'sizeType',
     'Hardware Type': 'hardwareType',
     'Quantity': 'quantity',
+    ' Quantity': 'quantity', // Handle the space issue
     'Link': 'link',
     'Vendor': 'vendor',
     'Allowance per item': 'allowancePerItem',
-    'Allowance per item (With Tax)': 'totalBudgetWithTax',
+    'Total Allowance': 'totalBudgetWithTax', // This is the key fix!
     'Notes': 'notes',
-    'Quality to be ordered': 'qualityToBeOrdered',
-    'Price per item (With Tax)': 'pricePerItem',
-    'Total Price with Tax': 'totalPriceWithTax',
-    'Difference from allowance': 'differenceFromAllowance',
-    'Shriji Share': 'shrijiShare',
-    'Client Share': 'clientShare',
-    'Shriji Comments': 'shrijiComments',
-    'Ordered?': 'ordered',
+    'Quantity to be Ordered': 'quantityToBeOrdered',
+    'Price Per Item': 'pricePerItem',
+    'Total Purchase Price': 'totalPriceWithTax', // Updated to match your actual header
+    'Difference From Allowance': 'differenceFromAllowance',
+    ' Difference From Allowance ': 'differenceFromAllowance', // Handle spaces
+    "Shriji's Share": 'shrijiShare',
+    "Client's Share": 'clientShare',
+    'Shriji Questions/Comments': 'shrijiComments',
+    "Client's Approval": 'approval',
+    'Ordered? (Y/N)': 'ordered',
     'Order ID': 'orderId',
     'Order Date': 'orderDate',
     'Priority': 'priority',
-    'Approval': 'approval'
+    'Allowance Collection': 'allowanceCollection'
   }
   
-  return headerMap[header] || header.toLowerCase().replace(/[^a-z0-9]/g, '')
+  // Try exact match first
+  if (headerMap[normalizedHeader]) {
+    return headerMap[normalizedHeader]
+  }
+  
+  // Try case-insensitive match
+  const lowerHeader = normalizedHeader.toLowerCase()
+  for (const [key, value] of Object.entries(headerMap)) {
+    if (key.toLowerCase() === lowerHeader) {
+      return value
+    }
+  }
+  
+  // Debug: log what we couldn't find
+  
+  // Fallback to generic transformation
+  const fallback = normalizedHeader.toLowerCase().replace(/[^a-z0-9]/g, '')
+  return fallback
 }
